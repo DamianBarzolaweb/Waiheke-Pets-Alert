@@ -1,0 +1,41 @@
+<div
+  class="fixed bottom-8 left-1/2 -translate-x-1/2 md:hidden z-50 w-[min(100%-2rem,420px)] px-2"
+  role="navigation"
+  aria-label="Mobile"
+>
+  <div
+    class="bg-surface/90 backdrop-blur-md rounded-full shadow-lg flex items-center justify-between p-2 gap-2 border border-outline-variant/20"
+  >
+    <a
+      routerLink="/"
+      routerLinkActive="bg-primary text-on-primary filled"
+      [routerLinkActiveOptions]="{ exact: true }"
+      class="material-symbols-outlined text-on-surface/60 p-3 rounded-full shrink-0"
+      aria-label="Feed"
+      >feed</a>
+    <a
+      routerLink="/how-it-works"
+      routerLinkActive="bg-primary text-on-primary"
+      class="material-symbols-outlined text-on-surface/60 p-3 rounded-full shrink-0"
+      aria-label="How it works"
+      >help</a>
+    <a
+      routerLink="/reportar"
+      routerLinkActive="bg-primary text-on-primary"
+      class="material-symbols-outlined text-on-surface/60 p-3 rounded-full shrink-0"
+      aria-label="Report"
+      >add_circle</a>
+    <a
+      routerLink="/recursos"
+      routerLinkActive="bg-primary text-on-primary"
+      class="material-symbols-outlined text-on-surface/60 p-3 rounded-full shrink-0"
+      aria-label="Island resources"
+      >menu_book</a>
+    <a
+      routerLink="/mapa"
+      routerLinkActive="bg-primary text-on-primary"
+      class="material-symbols-outlined text-on-surface/60 p-3 rounded-full shrink-0"
+      aria-label="Live map"
+      >map</a>
+  </div>
+</div>

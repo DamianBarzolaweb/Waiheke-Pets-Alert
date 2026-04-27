@@ -1,0 +1,50 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+}
+
+.map-host {
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  z-index: 0;
+}
+
+:host ::ng-deep .map-popup-wrap .map-popup {
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+:host ::ng-deep .map-popup-wrap .map-popup-sub {
+  color: rgb(75 85 99);
+  font-size: 0.8125rem;
+}
+
+:host ::ng-deep .map-popup-wrap .map-popup-status {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(100 116 139);
+}
+
+:host ::ng-deep .map-popup-wrap .map-popup-link {
+  margin: 0.5rem 0 0;
+}
+
+:host ::ng-deep .map-popup-wrap .map-popup-link a {
+  font-weight: 800;
+  color: var(--color-primary, #0d9488);
+  text-decoration: underline;
+}
+
+:host ::ng-deep .leaflet-container {
+  font-family: inherit;
+  background: rgb(241 245 249);
+  /* Helps touch pan/zoom stay on the map instead of scrolling the page */
+  touch-action: none;
+  outline: none;
+}

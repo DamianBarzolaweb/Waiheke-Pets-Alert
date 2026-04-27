@@ -1,0 +1,55 @@
+<nav
+  class="fixed top-0 w-full z-50 bg-surface/85 dark:bg-slate-950/80 backdrop-blur-xl shadow-soft ring-1 ring-on-surface/[0.04] dark:shadow-none dark:ring-0"
+>
+  <div class="flex justify-between items-center px-6 py-4 max-w-screen-2xl mx-auto gap-4">
+    <a routerLink="/" class="text-xl font-bold tracking-tighter text-primary dark:text-cyan-100 font-headline shrink-0">
+      Waiheke Pets Alert
+    </a>
+    <div class="hidden md:flex items-center gap-6 lg:gap-8 flex-wrap justify-end">
+      <a
+        routerLink="/"
+        routerLinkActive="text-primary border-b-2 border-primary"
+        [routerLinkActiveOptions]="{ paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' }"
+        class="inline-flex items-center text-on-surface/60 dark:text-slate-400 hover:bg-surface-container-low dark:hover:bg-slate-800 transition-colors duration-200 font-headline uppercase tracking-widest font-bold text-xs py-1 border-b-2 border-transparent"
+      >
+        Home
+      </a>
+      <a
+        routerLink="/how-it-works"
+        routerLinkActive="text-primary border-b-2 border-primary"
+        class="inline-flex items-center text-on-surface/60 dark:text-slate-400 hover:bg-surface-container-low dark:hover:bg-slate-800 transition-colors duration-200 font-headline uppercase tracking-widest font-bold text-xs py-1 border-b-2 border-transparent"
+      >
+        How it works
+      </a>
+      <a
+        routerLink="/recursos"
+        routerLinkActive="text-primary border-b-2 border-primary"
+        class="inline-flex items-center text-on-surface/60 dark:text-slate-400 hover:bg-surface-container-low dark:hover:bg-slate-800 transition-colors duration-200 font-headline uppercase tracking-widest font-bold text-xs py-1 border-b-2 border-transparent"
+      >
+        Island resources
+      </a>
+    </div>
+    <div class="flex items-center gap-2 sm:gap-4 shrink-0">
+      <button
+        type="button"
+        class="material-symbols-outlined text-on-surface/60 p-2 rounded-full hover:bg-surface-container-low transition-colors hidden sm:inline-flex"
+        aria-label="Notifications"
+      >
+        notifications
+      </button>
+      <button
+        type="button"
+        class="material-symbols-outlined text-on-surface/60 p-2 rounded-full hover:bg-surface-container-low transition-colors hidden sm:inline-flex"
+        aria-label="Account"
+      >
+        account_circle
+      </button>
+      <a
+        routerLink="/reportar"
+        class="bg-gradient-to-br from-primary to-primary-container text-on-primary px-4 sm:px-6 py-2 rounded-full font-headline font-bold text-[10px] sm:text-xs uppercase tracking-widest active:scale-95 transition-transform text-center whitespace-nowrap"
+      >
+        Report Pet
+      </a>
+    </div>
+  </div>
+</nav>
