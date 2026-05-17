@@ -22,6 +22,14 @@ app = Flask(__name__)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///waiheke_pets.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+if (
+    DATABASE_URL.startswith("postgresql")
+    and os.getenv("DYNO")
+    and "sqlite" not in DATABASE_URL.lower()
+    and "sslmode=" not in DATABASE_URL
+):
+    sep = "&" if "?" in DATABASE_URL else "?"
+    DATABASE_URL = f"{DATABASE_URL}{sep}sslmode=require"
 
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -384,6 +392,26 @@ def ensure_dev_user() -> None:
 def _slug_id(name: str) -> str:
     base = re.sub(r"[^a-z0-9]+", "-", (name or "pet").lower()).strip("-") or "pet"
     return f"{base}-{uuid.uuid4().hex[:8]}"
+
+
+@app.route("/", methods=["GET"])
+def root():
+    """Heroku/UI: sólo aclara; todo lo usable está bajo /api/."""
+    return (
+        "<!DOCTYPE html>"
+        '<html lang="es"><head><meta charset="utf-8"/><title>Waiheke Pets Alert · API</title></head>'
+        '<body style="font-family:system-ui,sans-serif;max-width:36rem;margin:2rem;line-height:1.5;color:#222">'
+        "<h1>Waiheke Pets Alert</h1>"
+        "<p>Este host es la <strong>API</strong> (backend Flask); no es la SPA de Angular.</p>"
+        "<p>Enlaces útiles:</p>"
+        "<ul>"
+        '<li><a href="/api/health">GET /api/health</a></li>'
+        '<li><a href="/api/alerts">GET /api/alerts</a></li>'
+        "</ul>"
+        "<p>Montá el front en otro host y configurá ahí "
+        "<code>window.__WPA_API_BASE__</code> a esta URL Heroku.</p>"
+        "</body></html>"
+    ), 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
 @app.route("/api/health", methods=["GET"])
