@@ -14,42 +14,52 @@ python app.py          # http://127.0.0.1:5001 — SQLite: waiheke_pets.db
 
 Desde la **raíz del repo**, `npm start` levanta **API + Angular** (`concurrently`): el proxy (`proxy.conf.json`) reenvía `http://localhost:4200/api/...` a Flask en `:5001`. Solo el front: `npm run start:web`.
 
-## Postgres (Heroku)
+## Heroku (API + Angular en la misma app)
 
-El build de Heroku usa `requirements.txt` en la **raíz del repositorio** (incluye `backend/requirements.txt` vía `-r`). Añade el addon Postgres y configurá (`heroku config:set`):
+Dos buildpacks, en este orden: **Node construye Angular**, **Python ejecuta Flask + Gunicorn**.
+
+```bash
+heroku create tu-app-wpa   # ejemplo
+heroku buildpacks:clear -a tu-app-wpa
+heroku buildpacks:add heroku/nodejs -a tu-app-wpa
+heroku buildpacks:add heroku/python -a tu-app-wpa
+heroku addons:create heroku-postgresql:essential-0 -a tu-app-wpa
+heroku config:set SECRET_KEY="$(openssl rand -hex 32)" JWT_SECRET_KEY="$(openssl rand -hex 32)" -a tu-app-wpa
+git push heroku main
+```
+
+- En el slug, `npm install` corre primero y luego el script **`heroku-postbuild`** (`ng build`); los estáticos quedan en `dist/waiheke-pets-alert/browser/` y Flask los sirve en `/` junto con `/api/...`.
+- **Misma URL Heroku**: no necesitás definir `window.__WPA_API_BASE__` (Angular llama rutas relativas `/api`).
+- **`CORS_ORIGINS`**: opcional si los usuarios usan sólo ese dominio. Dejalo vacío o agrega orígenes extra si exponés otro dominio / app móvil.
+
+Detalle Postgres (variables, Twilio): las tablas siguen arriba; `DATABASE_URL` la gestiona Heroku.
+
+
+### Frontend en otro dominio (solo API en Heroku)
+
+Si el Angular vive fuera del dyno:
+
+```html
+<script>window.__WPA_API_BASE__ = 'https://tu-api.herokuapp.com';</script>
+```
+y configurá **`CORS_ORIGINS`** en Heroku con el origen HTTPS exacto del front.
+
+## Postgres y variables típicas (Heroku)
+
+`requirements.txt` en la raíz referencia `backend/requirements.txt`. Heroku Postgres define **`DATABASE_URL`**; la app ajusta `postgres://` y SSL en dyno.
 
 | Variable | Descripción |
 |----------|-------------|
 | `SECRET_KEY` | Cadena aleatoria larga |
 | `JWT_SECRET_KEY` | Cadena aleatoria para JWT |
-| `CORS_ORIGINS` | URLs del front (HTTPS), separadas por coma. Ej.: `https://tu-app.netlify.app` |
-
-Heroku define `DATABASE_URL` automáticamente; la app reescribe `postgres://` → `postgresql://`.
+| `CORS_ORIGINS` | Orígenes extra (HTTPS, coma). Si el front es la misma app Heroku suele hacer falta sólo desarrollo/local. |
 
 ### Registro de usuarios en producción
 
-- **Twilio Verify** (OTP al teléfono): `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`. Variable opcional **`TWILIO_VERIFY_CHANNEL`**: valor `sms` (recomendado para empezar / cuenta trial sin WhatsApp Business) o `whatsapp` (requiere cuenta WABA enlazada a Verify; ver [Twilio Verify + WhatsApp](https://www.twilio.com/docs/verify/whatsapp)).
-- **Solo demos:** `SKIP_WHATSAPP_OTP=1` y `ALLOW_SKIP_PHONE_OTP_IN_PRODUCTION=1` — se salta WhatsApp (**no usar** con datos reales).
+- **Twilio Verify** (OTP): `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`; **`TWILIO_VERIFY_CHANNEL`** `sms` o `whatsapp`.
+- **Solo demos:** `SKIP_WHATSAPP_OTP` + `ALLOW_SKIP_PHONE_OTP_IN_PRODUCTION`.
 
-Email opcional: `MAILGUN_API_KEY` y `MAILGUN_DOMAIN`.
-
-### Frontend (Angular) apuntando al API
-
-Tras `ng build`, en el `index.html` generado (o en `src/index.html` antes de compilar) definí antes de `<app-root>`:
-
-```html
-<script>window.__WPA_API_BASE__ = 'https://tu-api.herokuapp.com';</script>
-```
-
-### Crear la app desde la raíz del repo
-
-```bash
-heroku create tu-api-wpa
-heroku addons:create heroku-postgresql:essential-0
-heroku config:set SECRET_KEY="$(openssl rand -hex 32)" JWT_SECRET_KEY="$(openssl rand -hex 32)"
-heroku config:set CORS_ORIGINS="https://donde-esta-el-frontend.com"
-git push heroku main
-```
+Email opcional: `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`.
 
 ## Rutas útiles
 

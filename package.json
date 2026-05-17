@@ -1,8 +1,12 @@
 {
   "name": "waiheke-pets-alert",
   "version": "0.0.0",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "ng": "ng",
+    "heroku-postbuild": "ng build --configuration production",
     "start": "concurrently -n api,web -c cyan,magenta \"npm run start:api\" \"npm run start:web\"",
     "start:web": "ng serve --proxy-config proxy.conf.json",
     "start:api": "bash ./backend/run_dev.sh",

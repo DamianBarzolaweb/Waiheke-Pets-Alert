@@ -8,7 +8,7 @@ from functools import wraps
 import jwt
 from sqlalchemy import inspect, text
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, abort, jsonify, request, send_from_directory
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -394,26 +394,6 @@ def _slug_id(name: str) -> str:
     return f"{base}-{uuid.uuid4().hex[:8]}"
 
 
-@app.route("/", methods=["GET"])
-def root():
-    """Heroku/UI: sólo aclara; todo lo usable está bajo /api/."""
-    return (
-        "<!DOCTYPE html>"
-        '<html lang="es"><head><meta charset="utf-8"/><title>Waiheke Pets Alert · API</title></head>'
-        '<body style="font-family:system-ui,sans-serif;max-width:36rem;margin:2rem;line-height:1.5;color:#222">'
-        "<h1>Waiheke Pets Alert</h1>"
-        "<p>Este host es la <strong>API</strong> (backend Flask); no es la SPA de Angular.</p>"
-        "<p>Enlaces útiles:</p>"
-        "<ul>"
-        '<li><a href="/api/health">GET /api/health</a></li>'
-        '<li><a href="/api/alerts">GET /api/alerts</a></li>'
-        "</ul>"
-        "<p>Montá el front en otro host y configurá ahí "
-        "<code>window.__WPA_API_BASE__</code> a esta URL Heroku.</p>"
-        "</body></html>"
-    ), 200, {"Content-Type": "text/html; charset=utf-8"}
-
-
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"ok": True, "service": "waiheke-pets-alert"})
@@ -699,6 +679,41 @@ def me(payload):
     if not u:
         return jsonify({"error": "Usuario no encontrado"}), 404
     return jsonify(user_to_dict(u))
+
+
+def _angular_browser_dir() -> str:
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.abspath(os.path.join(backend_dir, "..", "dist", "waiheke-pets-alert", "browser"))
+
+
+def _serve_angular_asset(path_within: str):
+    root_dir = _angular_browser_dir()
+    index_path = os.path.join(root_dir, "index.html")
+    if not os.path.isfile(index_path):
+        msg = (
+            "<!DOCTYPE html><html lang='es'><meta charset=utf-8><title>Sin frontend</title>"
+            "<body style='font-family:system-ui;margin:2rem'>"
+            "<h1>Falta el bundle de Angular</h1>"
+            "<p>En desarrollo: <code>npm run build</code>. "
+            "En Heroku debe ejecutarse el build de Node antes de lanzar Flask.</p>"
+            "</body></html>"
+        )
+        return msg, 503, {"Content-Type": "text/html; charset=utf-8"}
+    if path_within == "api" or path_within.startswith("api/"):
+        abort(404)
+    candidate = os.path.normpath(os.path.join(root_dir, path_within))
+    if not candidate.startswith(root_dir + os.sep) and candidate != root_dir:
+        abort(403)
+    if path_within and os.path.isfile(candidate):
+        return send_from_directory(os.path.dirname(candidate), os.path.basename(candidate))
+    return send_from_directory(root_dir, "index.html")
+
+
+@app.route("/", defaults={"path_within": ""}, methods=["GET"])
+@app.route("/<path:path_within>", methods=["GET"])
+def spa(path_within):
+    """Angular en el mismo host; las rutas /api tienen handlers propios declarados antes."""
+    return _serve_angular_asset(path_within)
 
 
 def _init():
