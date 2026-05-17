@@ -119,6 +119,10 @@
       </a>
     </div>
   </article>
+} @else if (loadingAlerts()) {
+  <div class="rounded-2xl bg-surface-container-low p-10 text-center ring-1 ring-on-surface/[0.06] shadow-soft">
+    <p class="text-on-surface-variant text-sm">Cargando alerta…</p>
+  </div>
 } @else {
   <div class="rounded-2xl bg-surface-container-low p-10 text-center ring-1 ring-on-surface/[0.06] shadow-soft">
     <h1 class="font-headline text-2xl font-extrabold text-primary mb-2">Alert not found</h1>

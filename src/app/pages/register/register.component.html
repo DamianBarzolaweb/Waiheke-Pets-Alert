@@ -1,0 +1,159 @@
+<div class="max-w-lg mx-auto px-4 py-10">
+  <h1 class="font-headline text-3xl font-extrabold text-primary mb-2">Crear cuenta</h1>
+  <p class="text-on-surface-variant text-sm mb-6">
+    Número móvil obligatorio (formato internacional). Verificación por WhatsApp cuando el servidor lo exija; en
+    desarrollo puede omitirse para avanzar con el diseño. Si cargás email, luego pedimos código de verificación.
+  </p>
+
+  @if (error(); as err) {
+    <div class="mb-6 rounded-2xl bg-error/10 text-error px-4 py-3 text-sm font-medium ring-1 ring-error/20" role="alert">
+      {{ err }}
+    </div>
+  }
+
+  @if (step() === 1) {
+    <form [formGroup]="form" (submit)="submitPaso1($event)" class="space-y-5">
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="username">Usuario</label>
+        <input id="username" formControlName="username" class="w-full rounded-xl bg-surface-container-high px-4 py-3 text-sm font-semibold" />
+        @if (form.controls.username.touched && form.controls.username.invalid) {
+          <p class="mt-2 text-xs text-error">Obligatorio — mínimo 2 caracteres.</p>
+        }
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="password">Contraseña</label>
+        <input id="password" type="password" formControlName="password" class="w-full rounded-xl bg-surface-container-high px-4 py-3 text-sm font-semibold" />
+        @if (form.controls.password.touched && form.controls.password.invalid) {
+          <p class="mt-2 text-xs text-error">Obligatorio — mínimo 6 caracteres.</p>
+        }
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="nombre">Nombre completo</label>
+        <input id="nombre" formControlName="nombreCompleto" class="w-full rounded-xl bg-surface-container-high px-4 py-3 text-sm font-semibold" />
+        @if (form.controls.nombreCompleto.touched && form.controls.nombreCompleto.invalid) {
+          <p class="mt-2 text-xs text-error">Campo obligatorio.</p>
+        }
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="email">Email (opcional)</label>
+        <input id="email" type="email" formControlName="email" class="w-full rounded-xl bg-surface-container-high px-4 py-3 text-sm font-semibold" />
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="wa">WhatsApp (móvil)</label>
+        <input
+          id="wa"
+          formControlName="whatsapp"
+          placeholder="+64 21… o +54 9 …"
+          class="w-full rounded-xl bg-surface-container-high px-4 py-3 text-sm font-semibold"
+        />
+        <p class="text-[11px] text-on-surface-variant mt-1">Formato internacional, como en Latinos.</p>
+        @if (form.controls.whatsapp.touched && form.controls.whatsapp.invalid) {
+          <p class="mt-2 text-xs text-error">El número es obligatorio.</p>
+        }
+      </div>
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input type="checkbox" formControlName="aceptoTerminos" class="mt-1 rounded" />
+        <span class="text-sm text-on-surface-variant">Acepto los términos y condiciones.</span>
+      </label>
+      @if (form.controls.aceptoTerminos.touched && form.controls.aceptoTerminos.invalid) {
+        <p class="text-xs text-error font-medium">Tenés que aceptar los términos para continuar.</p>
+      }
+      <button
+        type="submit"
+        [disabled]="submitting()"
+        class="w-full rounded-2xl bg-primary text-on-primary py-3.5 text-sm font-extrabold uppercase tracking-widest disabled:opacity-50"
+      >
+        {{ submitting() ? 'Enviando…' : 'Siguiente' }}
+      </button>
+    </form>
+  }
+
+  @if (step() === 2) {
+    <form (submit)="submitPaso2($event)" class="space-y-6">
+      <p class="text-sm text-on-surface-variant">
+        Te enviamos un código por WhatsApp cuando Twilio está configurado.
+        En local sin Twilio, mirá la terminal del servidor o el recuadro de abajo.
+      </p>
+
+      @if (devRegisterHints(); as dh) {
+        <div class="rounded-2xl bg-secondary-fixed/35 ring-1 ring-secondary/25 px-4 py-4 space-y-3 text-sm">
+          <p class="font-headline font-extrabold text-secondary">Modo desarrollo (sin WhatsApp real)</p>
+          <p class="text-on-surface">
+            Tu código para este usuario:
+            <span class="font-mono font-bold tracking-wider text-xl text-primary">{{ dh.code }}</span>
+          </p>
+          <a
+            class="inline-flex items-center gap-2 rounded-full bg-green-700 text-white px-4 py-2 text-xs font-extrabold uppercase tracking-wide no-underline hover:brightness-110"
+            [href]="dh.whatsappComposeUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Abrir WhatsApp con este mensaje
+          </a>
+          <p class="text-[11px] text-on-surface-variant">
+            Abre la app para que puedas pegarte el código en un chat de prueba. No reemplaza a Twilio en producción.
+          </p>
+        </div>
+      }
+
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="codeP">Código</label>
+        <input
+          id="codeP"
+          [formControl]="codePhone"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          class="w-full rounded-xl bg-surface-container-high px-4 py-3 text-lg font-mono tracking-widest"
+        />
+        @if (codePhone.touched && codePhone.invalid) {
+          <p class="mt-2 text-xs text-error">Debés ingresar 6 dígitos.</p>
+        }
+      </div>
+      <button
+        type="submit"
+        [disabled]="submitting()"
+        class="w-full rounded-2xl bg-primary text-on-primary py-3.5 text-sm font-extrabold uppercase tracking-widest disabled:opacity-50"
+      >
+        Verificar
+      </button>
+      <button type="button" (click)="volverPaso1()" class="w-full text-sm text-on-surface-variant hover:text-primary">Volver</button>
+    </form>
+  }
+
+  @if (step() === 3) {
+    <form (submit)="submitPaso3($event)" class="space-y-6">
+      @if (resendEmailOk(); as okMsg) {
+        <div class="rounded-2xl bg-primary-fixed/35 text-on-surface px-4 py-3 text-sm ring-1 ring-primary/20" role="status">
+          {{ okMsg }}
+        </div>
+      }
+      <p class="text-sm text-on-surface-variant">Revisá tu correo: enviamos un código de 6 dígitos (también puede verse en consola del servidor sin Mailgun).</p>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="codeE">Código de email</label>
+        <input
+          id="codeE"
+          [formControl]="codeEmail"
+          inputmode="numeric"
+          maxlength="6"
+          class="w-full rounded-xl bg-surface-container-high px-4 py-3 text-lg font-mono tracking-widest"
+        />
+        @if (codeEmail.touched && codeEmail.invalid) {
+          <p class="mt-2 text-xs text-error">Debés ingresar los 6 dígitos del email.</p>
+        }
+      </div>
+      <button
+        type="submit"
+        [disabled]="submitting()"
+        class="w-full rounded-2xl bg-primary text-on-primary py-3.5 text-sm font-extrabold uppercase tracking-widest disabled:opacity-50"
+      >
+        Confirmar email
+      </button>
+      <button type="button" (click)="resendEmail()" class="w-full text-sm text-primary font-bold">Reenviar código</button>
+    </form>
+  }
+
+  <p class="mt-8 text-center text-sm text-on-surface-variant">
+    ¿Ya tenés cuenta?
+    <a routerLink="/login" class="font-bold text-primary hover:underline">Iniciar sesión</a>
+  </p>
+</div>

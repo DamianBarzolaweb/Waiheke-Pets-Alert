@@ -40,3 +40,16 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Secretos — nunca commitear (en la raíz o en backend/)
+.env
+.env.local
+.env.*.local
+
+# Local PDF tooling (sponsorship proposal generator)
+.venv_pdf/
+
+# Python API (backend/)
+backend/.venv/
+backend/__pycache__/
+backend/*.db

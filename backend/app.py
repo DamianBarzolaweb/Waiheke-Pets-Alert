@@ -60,10 +60,17 @@ def utcnow():
 
 
 def skip_whatsapp_otp_enabled() -> bool:
-    """Solo desarrollo: sin envío ni chequeo de OTP por WhatsApp (Twilio pendiente)."""
-    if (os.getenv("FLASK_ENV") or "").strip().lower() != "development":
+    """Sin OTP de WhatsApp si SKIP_WHATSAPP_OTP: en desarrollo siempre permitido si está activo; en producción solo con ALLOW_SKIP_PHONE_OTP_IN_PRODUCTION."""
+    skip = os.getenv("SKIP_WHATSAPP_OTP", "").strip().lower() in ("1", "true", "yes")
+    if not skip:
         return False
-    return os.getenv("SKIP_WHATSAPP_OTP", "").strip().lower() in ("1", "true", "yes")
+    if (os.getenv("FLASK_ENV") or "").strip().lower() == "development":
+        return True
+    return os.getenv("ALLOW_SKIP_PHONE_OTP_IN_PRODUCTION", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
 
 def humanize_reported_ago(created: datetime) -> str:

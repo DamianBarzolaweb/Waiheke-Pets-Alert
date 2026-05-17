@@ -29,21 +29,32 @@
         Island resources
       </a>
     </div>
-    <div class="flex items-center gap-2 sm:gap-4 shrink-0">
-      <button
-        type="button"
-        class="material-symbols-outlined text-on-surface/60 p-2 rounded-full hover:bg-surface-container-low transition-colors hidden sm:inline-flex"
-        aria-label="Notifications"
-      >
-        notifications
-      </button>
-      <button
-        type="button"
-        class="material-symbols-outlined text-on-surface/60 p-2 rounded-full hover:bg-surface-container-low transition-colors hidden sm:inline-flex"
-        aria-label="Account"
-      >
-        account_circle
-      </button>
+    <div class="flex items-center gap-2 sm:gap-3 shrink-0 flex-wrap justify-end">
+      @if (auth.isLoggedIn()) {
+        <span class="hidden sm:inline text-xs font-bold text-on-surface/80 max-w-[120px] truncate" [title]="auth.user()?.username">
+          {{ auth.user()?.username }}
+        </span>
+        <button
+          type="button"
+          (click)="logout()"
+          class="hidden sm:inline text-xs font-extrabold uppercase tracking-widest text-on-surface/60 hover:text-primary px-2 py-1"
+        >
+          Salir
+        </button>
+      } @else {
+        <a
+          routerLink="/login"
+          class="text-[10px] sm:text-xs font-extrabold uppercase tracking-widest text-on-surface/70 hover:text-primary px-2 py-1"
+        >
+          Login
+        </a>
+        <a
+          routerLink="/registro"
+          class="text-[10px] sm:text-xs font-extrabold uppercase tracking-widest text-primary hover:underline px-2 py-1"
+        >
+          Sign up
+        </a>
+      }
       <a
         routerLink="/reportar"
         class="bg-gradient-to-br from-primary to-primary-container text-on-primary px-4 sm:px-6 py-2 rounded-full font-headline font-bold text-[10px] sm:text-xs uppercase tracking-widest active:scale-95 transition-transform text-center whitespace-nowrap"

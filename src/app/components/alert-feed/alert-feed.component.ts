@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import type { AlertStatus, Species } from '../../models/pet-alert.model';
+import { alertHeadline, type AlertStatus, type Species } from '../../models/pet-alert.model';
 import { RouterLink } from '@angular/router';
 import { PetAlertsService } from '../../services/pet-alerts.service';
 import { PetCardComponent } from '../pet-card/pet-card.component';
@@ -22,6 +22,7 @@ export class AlertFeedComponent {
   readonly speciesFilter = signal<SpeciesFilter>('all');
   readonly statusFilter = signal<StatusFilter>('all');
   readonly searchQuery = signal('');
+  readonly loadError = this.alertsService.loadError;
 
   constructor() {
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
@@ -49,7 +50,7 @@ export class AlertFeedComponent {
       if (!q) {
         return true;
       }
-      const haystack = `${alert.name} ${alert.breed} ${alert.location}`.toLowerCase();
+      const haystack = `${alertHeadline(alert)} ${alert.breed} ${alert.location}`.toLowerCase();
       return haystack.includes(q);
     });
   });

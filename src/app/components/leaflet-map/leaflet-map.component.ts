@@ -8,6 +8,8 @@ import {
   effect,
   inject,
   input,
+  output,
+  signal,
 } from '@angular/core';
 import * as L from 'leaflet';
 import { patchLeafletIcons } from '../../lib/patch-leaflet-icons';
@@ -32,13 +34,26 @@ export class LeafletMapComponent implements AfterViewInit, OnDestroy {
 
   readonly markers = input<LeafletMapMarker[]>([]);
   readonly zoom = input(13);
+  /** Click or drag to choose a single location (e.g. report form). */
+  readonly pickMode = input(false);
+  /** Current pick position; syncs marker from parent. */
+  readonly picked = input<{ lat: number; lng: number } | null>(null);
+  readonly pickedChange = output<{ lat: number; lng: number }>();
+  /**
+   * When false, alert markers are drawn but the camera is not fitted to them
+   * (use on forms with pick mode so the view stays on the island).
+   */
+  readonly fitBoundsToMarkers = input(true);
 
   private readonly ngZone = inject(NgZone);
+  private readonly mapReady = signal(false);
 
   private map: L.Map | null = null;
   private markerLayer: L.LayerGroup | null = null;
+  private pickLayerGroup: L.LayerGroup | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private lastMarkersSignature = '';
+  private lastPickSignature = '';
 
   constructor() {
     effect(() => {
@@ -50,6 +65,25 @@ export class LeafletMapComponent implements AfterViewInit, OnDestroy {
       this.ngZone.runOutsideAngular(() => {
         this.applyMarkers(list, z);
       });
+    });
+
+    effect(() => {
+      if (!this.mapReady() || !this.map || !this.pickLayerGroup) {
+        return;
+      }
+      const pick = this.pickMode();
+      const p = this.picked();
+      this.ngZone.runOutsideAngular(() => {
+        this.syncPickMarker(pick, p);
+      });
+    });
+  }
+
+  /** Call after the host gets size (e.g. map was hidden) so tiles and bounds are correct. */
+  invalidateSize(): void {
+    this.ngZone.runOutsideAngular(() => {
+      this.map?.invalidateSize({ animate: false });
+      requestAnimationFrame(() => this.map?.invalidateSize({ animate: false }));
     });
   }
 
@@ -69,8 +103,28 @@ export class LeafletMapComponent implements AfterViewInit, OnDestroy {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(this.map);
       this.markerLayer = L.layerGroup().addTo(this.map);
+      this.pickLayerGroup = L.layerGroup().addTo(this.map);
       this.applyMarkers(this.markers(), this.zoom());
+
+      if (!this.fitBoundsToMarkers()) {
+        const island: L.LatLngTuple = [-36.788, 175.03];
+        this.map.setView(island, this.zoom());
+      }
+
+      this.map.on('click', (e: L.LeafletMouseEvent) => {
+        if (!this.pickMode()) {
+          return;
+        }
+        this.ngZone.run(() => {
+          this.pickedChange.emit({ lat: e.latlng.lat, lng: e.latlng.lng });
+        });
+      });
+
+      // First pick marker paint + mapReady unlocks reactive pick sync.
+      this.syncPickMarker(this.pickMode(), this.picked());
     });
+
+    this.mapReady.set(true);
 
     this.resizeObserver = new ResizeObserver(() => {
       this.ngZone.runOutsideAngular(() => {
@@ -86,7 +140,10 @@ export class LeafletMapComponent implements AfterViewInit, OnDestroy {
     const map = this.map;
     this.map = null;
     this.markerLayer = null;
+    this.pickLayerGroup = null;
+    this.mapReady.set(false);
     this.lastMarkersSignature = '';
+    this.lastPickSignature = '';
     if (map) {
       this.ngZone.runOutsideAngular(() => map.remove());
     }
@@ -146,11 +203,47 @@ export class LeafletMapComponent implements AfterViewInit, OnDestroy {
       );
       marker.addTo(this.markerLayer);
     }
-    if (list.length === 1) {
-      this.map.setView([list[0].lat, list[0].lng], z);
-    } else {
-      this.map.fitBounds(bounds, { padding: [48, 48], maxZoom: 14 });
+    if (this.fitBoundsToMarkers()) {
+      if (list.length === 1) {
+        this.map.setView([list[0].lat, list[0].lng], z);
+      } else {
+        this.map.fitBounds(bounds, { padding: [48, 48], maxZoom: 14 });
+      }
     }
+    this.flushMapSize();
+  }
+
+  private pickSignature(pick: boolean, p: { lat: number; lng: number } | null): string {
+    if (!pick || !p) {
+      return `${pick}|`;
+    }
+    return `${pick}|${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
+  }
+
+  private syncPickMarker(pick: boolean, p: { lat: number; lng: number } | null): void {
+    const group = this.pickLayerGroup;
+    const map = this.map;
+    if (!group || !map) {
+      return;
+    }
+    const sig = this.pickSignature(pick, p);
+    if (sig === this.lastPickSignature) {
+      return;
+    }
+    this.lastPickSignature = sig;
+
+    group.clearLayers();
+    if (!pick || p == null) {
+      this.flushMapSize();
+      return;
+    }
+    const m = L.marker([p.lat, p.lng], { draggable: true });
+    m.on('dragend', () => {
+      const ll = m.getLatLng();
+      this.ngZone.run(() => this.pickedChange.emit({ lat: ll.lat, lng: ll.lng }));
+    });
+    m.addTo(group);
+    map.panTo([p.lat, p.lng], { animate: true });
     this.flushMapSize();
   }
 }

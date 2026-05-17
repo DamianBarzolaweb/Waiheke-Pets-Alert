@@ -1,0 +1,49 @@
+<div class="max-w-md mx-auto px-4 py-12">
+  <h1 class="font-headline text-3xl font-extrabold text-primary mb-2">Iniciar sesión</h1>
+  <p class="text-on-surface-variant text-sm mb-8">
+    Ingresá el usuario y la contraseña que elegiste al registrarte.
+  </p>
+
+  @if (error(); as err) {
+    <div class="mb-6 rounded-2xl bg-error/10 text-error px-4 py-3 text-sm font-medium ring-1 ring-error/20" role="alert">
+      {{ err }}
+    </div>
+  }
+
+  <form [formGroup]="form" (submit)="onSubmit($event)" class="space-y-6">
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="username">Usuario</label>
+      <input
+        id="username"
+        formControlName="username"
+        autocomplete="username"
+        class="w-full rounded-xl bg-surface-container-high border-none px-4 py-3.5 text-sm font-semibold text-on-surface focus:ring-2 focus:ring-primary/25"
+      />
+      @if (form.controls.username.touched && form.controls.username.invalid) {
+        <p class="mt-2 text-xs text-error">Requerido (mín. 2 caracteres).</p>
+      }
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="password">Contraseña</label>
+      <input
+        id="password"
+        type="password"
+        formControlName="password"
+        autocomplete="current-password"
+        class="w-full rounded-xl bg-surface-container-high border-none px-4 py-3.5 text-sm font-semibold text-on-surface focus:ring-2 focus:ring-primary/25"
+      />
+    </div>
+    <button
+      type="submit"
+      [disabled]="submitting()"
+      class="w-full rounded-2xl bg-primary text-on-primary py-3.5 text-sm font-extrabold uppercase tracking-widest disabled:opacity-50"
+    >
+      {{ submitting() ? 'Entrando…' : 'Entrar' }}
+    </button>
+  </form>
+
+  <p class="mt-8 text-center text-sm text-on-surface-variant">
+    ¿No tenés cuenta?
+    <a routerLink="/registro" class="font-bold text-primary hover:underline">Crear cuenta</a>
+  </p>
+</div>

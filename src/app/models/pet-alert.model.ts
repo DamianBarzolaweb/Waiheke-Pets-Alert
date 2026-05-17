@@ -12,6 +12,7 @@ export interface CommunitySighting {
 
 export interface PetAlert {
   id: string;
+  /** Vacío en avistamientos cuando el testigo no conoce el nombre. */
   name: string;
   status: AlertStatus;
   species: Species;
@@ -31,4 +32,13 @@ export interface PetAlert {
   detailLocation?: string;
   fullDescription?: string;
   sightings?: CommunitySighting[];
+}
+
+/** Título para tarjetas y mapas cuando no hay nombre (p. ej. avistamiento). */
+export function alertHeadline(a: PetAlert): string {
+  if (a.status === 'Sighted' && !(a.name ?? '').trim()) {
+    const b = (a.breed ?? '').trim();
+    return b && b !== 'Unknown' ? b : 'Sighted pet';
+  }
+  return (a.name ?? '').trim() || 'Pet';
 }

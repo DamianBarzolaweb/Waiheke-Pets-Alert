@@ -3,6 +3,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { LeafletMapComponent, type LeafletMapMarker } from '../../components/leaflet-map/leaflet-map.component';
+import { alertHeadline } from '../../models/pet-alert.model';
 import { PetAlertsService } from '../../services/pet-alerts.service';
 
 @Component({
@@ -19,6 +20,8 @@ export class AlertDetailComponent {
     initialValue: '',
   });
 
+  readonly loadingAlerts = this.alertsService.loading;
+
   readonly alert = computed(() => {
     const id = this.alertId();
     return id ? this.alertsService.getById(id) : undefined;
@@ -32,7 +35,8 @@ export class AlertDetailComponent {
     if (a.status === 'Lost') {
       return `Finding ${a.name}`;
     }
-    return `Sighted: ${a.name}`;
+    const head = alertHeadline(a);
+    return head === 'Sighted pet' || !(a.name ?? '').trim() ? head : `Sighted: ${a.name}`;
   });
 
   readonly mapMarkers = computed((): LeafletMapMarker[] => {
@@ -40,6 +44,6 @@ export class AlertDetailComponent {
     if (!a) {
       return [];
     }
-    return [{ lat: a.lat, lng: a.lng, title: a.name, subtitle: a.location, status: a.status }];
+    return [{ lat: a.lat, lng: a.lng, title: alertHeadline(a), subtitle: a.location, status: a.status }];
   });
 }

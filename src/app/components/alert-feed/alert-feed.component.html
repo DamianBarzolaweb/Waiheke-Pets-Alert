@@ -8,6 +8,15 @@
   </p>
 </header>
 
+@if (loadError(); as err) {
+  <div
+    class="mb-8 rounded-2xl bg-error/10 text-error px-4 py-3 text-sm font-medium ring-1 ring-error/20"
+    role="alert"
+  >
+    {{ err }}
+  </div>
+}
+
 <section
   class="mb-10 md:mb-12 rounded-2xl bg-surface-container-lowest/90 ring-1 ring-on-surface/[0.06] shadow-soft p-4 sm:p-5 md:p-6"
 >

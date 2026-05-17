@@ -1,6 +1,6 @@
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { PetAlert } from '../../models/pet-alert.model';
+import { alertHeadline, type PetAlert } from '../../models/pet-alert.model';
 
 @Component({
   selector: 'app-pet-card',
@@ -10,4 +10,5 @@ import type { PetAlert } from '../../models/pet-alert.model';
 })
 export class PetCardComponent {
   readonly alert = input.required<PetAlert>();
+  readonly headline = computed(() => alertHeadline(this.alert()));
 }

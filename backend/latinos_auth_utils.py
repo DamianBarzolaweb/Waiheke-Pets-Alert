@@ -107,8 +107,13 @@ def iniciar_verificacion_whatsapp(numero_e164: str, nombre: str) -> tuple[bool, 
         from twilio.rest import Client
 
         client = Client(sid.strip(), token.strip())
+        channel = (
+            os.getenv("TWILIO_VERIFY_CHANNEL") or os.getenv("TWILIO_VERIFY_DEFAULT_CHANNEL") or "whatsapp"
+        ).strip().lower()
+        if channel not in ("whatsapp", "sms"):
+            channel = "whatsapp"
         client.verify.v2.services(vsid.strip()).verifications.create(
-            to=numero_e164, channel="whatsapp"
+            to=numero_e164, channel=channel
         )
         return True, None
     except Exception as e:

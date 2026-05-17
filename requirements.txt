@@ -1,0 +1,2 @@
+# Heroku: el buildpack pip instala dependencias desde la raíz del repo.
+-r backend/requirements.txt

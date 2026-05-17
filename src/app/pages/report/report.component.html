@@ -7,6 +7,15 @@
     </p>
   </header>
 
+  @if (submitError(); as err) {
+    <div
+      class="mb-6 rounded-2xl bg-error/10 text-error px-4 py-3 text-sm font-medium ring-1 ring-error/20"
+      role="alert"
+    >
+      {{ err }}
+    </div>
+  }
+
   <form class="space-y-8" [formGroup]="form" (submit)="onSubmit($event)" novalidate>
     <section class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8 space-y-6">
       <div class="flex items-center justify-between gap-4 flex-wrap">
@@ -41,19 +50,21 @@
         </div>
       </div>
 
-      <div>
-        <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="petName">Pet name</label>
-        <input
-          id="petName"
-          formControlName="petName"
-          class="w-full rounded-xl bg-surface-container-high border-none px-4 py-3.5 text-sm font-semibold text-on-surface placeholder:text-outline/70 focus:ring-2 focus:ring-primary/25"
-          placeholder="e.g. Cooper"
-          autocomplete="off"
-        />
-        @if (form.controls.petName.touched && form.controls.petName.invalid) {
-          <p class="mt-2 text-xs font-semibold text-error">Please enter a name.</p>
-        }
-      </div>
+      @if (kind() === 'lost') {
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="petName">Pet name</label>
+          <input
+            id="petName"
+            formControlName="petName"
+            class="w-full rounded-xl bg-surface-container-high border-none px-4 py-3.5 text-sm font-semibold text-on-surface placeholder:text-outline/70 focus:ring-2 focus:ring-primary/25"
+            placeholder="e.g. Cooper"
+            autocomplete="off"
+          />
+          @if (form.controls.petName.touched && form.controls.petName.invalid) {
+            <p class="mt-2 text-xs font-semibold text-error">Please enter a name.</p>
+          }
+        </div>
+      }
 
       <div>
         <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="breed">Pet type &amp; breed</label>
@@ -98,21 +109,42 @@
 
       <div>
         <p class="block text-xs font-bold uppercase tracking-widest text-outline mb-2">Last known location</p>
+        <p class="text-xs text-on-surface-variant mb-3 max-w-xl">
+          El mapa muestra las alertas actuales. Tocá el mapa para colocar tu pin (o arrastralo para ajustar). Es la misma vista que
+          <a routerLink="/mapa" class="font-bold text-primary underline">el mapa en vivo</a>; al publicar, el pin queda guardado ahí.
+        </p>
         <div
-          class="relative overflow-hidden rounded-2xl ring-1 ring-on-surface/[0.06] bg-gradient-to-br from-primary-fixed/40 via-secondary-fixed/35 to-tertiary-fixed/40 min-h-[200px] flex flex-col items-center justify-center text-center px-6"
+          id="report-map-wrap"
+          class="rounded-2xl overflow-hidden ring-1 ring-on-surface/[0.06] shadow-soft h-[min(45vh,360px)] min-h-[260px] w-full relative z-0"
         >
-          <span class="material-symbols-outlined text-4xl text-primary mb-2">map</span>
-          <p class="font-headline text-sm font-extrabold text-primary">Tap to mark location</p>
-          <p class="text-xs text-on-surface-variant mt-1 max-w-xs">
-            Use the <a routerLink="/mapa" class="font-bold text-primary underline">live map</a> to check nearby alerts; pin picker can hook in here next.
-          </p>
+          <app-leaflet-map
+            #reportMap
+            class="block h-full w-full"
+            [markers]="contextMarkers()"
+            [zoom]="13"
+            [pickMode]="true"
+            [picked]="pickedPin()"
+            (pickedChange)="onPicked($event)"
+            [fitBoundsToMarkers]="false"
+          />
+        </div>
+        <div class="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
-            class="mt-4 inline-flex items-center gap-2 rounded-full bg-surface-container-lowest/90 px-4 py-2 text-xs font-extrabold uppercase tracking-widest text-primary ring-1 ring-on-surface/[0.08] hover:bg-white transition"
+            (click)="focusPickMap()"
+            class="inline-flex items-center gap-2 rounded-full bg-surface-container-high px-4 py-2 text-xs font-extrabold uppercase tracking-widest text-primary ring-1 ring-on-surface/[0.08] hover:bg-surface-container-highest transition"
           >
             <span class="material-symbols-outlined text-base">add_location</span>
-            Set pin
+            Set pin en el mapa
           </button>
+          @if (pickedPin(); as pin) {
+            <span class="text-xs font-semibold text-on-surface-variant">
+              Pin:
+              <span class="text-on-surface">{{ pin.lat | number : '1.4-4' }}°, {{ pin.lng | number : '1.4-4' }}°</span>
+            </span>
+          } @else {
+            <span class="text-xs font-medium text-outline">Aún no hay pin — tocá el mapa arriba.</span>
+          }
         </div>
       </div>
     </section>
@@ -153,7 +185,8 @@
       </a>
       <button
         type="submit"
-        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-primary to-primary-container text-on-primary px-8 py-4 text-sm font-extrabold uppercase tracking-widest shadow-card hover:shadow-card-hover active:scale-[0.99] transition w-full sm:w-auto"
+        [disabled]="submitting()"
+        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-primary to-primary-container text-on-primary px-8 py-4 text-sm font-extrabold uppercase tracking-widest shadow-card hover:shadow-card-hover active:scale-[0.99] transition w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span class="material-symbols-outlined text-lg">campaign</span>
         Broadcast report
