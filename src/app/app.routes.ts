@@ -7,17 +7,21 @@ import { HowItWorksComponent } from './pages/how-it-works/how-it-works.component
 import { MapPageComponent } from './pages/map-page/map-page.component';
 import { LoginComponent } from './pages/login/login.component';
 import { RegisterComponent } from './pages/register/register.component';
+import { TermsPageComponent } from './pages/legal/terms-page.component';
+import { PrivacyPageComponent } from './pages/legal/privacy-page.component';
 
 export const routes: Routes = [
-  /* path: '' sin pathMatch: 'full' matchea cualquier URL como prefijo y anula /login, /registro, etc. */
-  { path: '', pathMatch: 'full', component: HomeComponent, title: 'Inicio' },
-  { path: 'login', component: LoginComponent, title: 'Iniciar sesión' },
-  { path: 'registro', component: RegisterComponent, title: 'Crear cuenta' },
-  { path: 'mapa', component: MapPageComponent, title: 'Mapa' },
-  { path: 'alertas/:id', component: AlertDetailComponent, title: 'Detalle de alerta' },
+  /* Empty path '' must use pathMatch: 'full', otherwise every URL matches as prefix and wipes /login, /registro, etc. */
+  { path: '', pathMatch: 'full', component: HomeComponent, title: 'Home' },
+  { path: 'login', component: LoginComponent, title: 'Log in' },
+  { path: 'registro', component: RegisterComponent, title: 'Sign up' },
+  { path: 'terms', component: TermsPageComponent, title: 'Terms & Conditions' },
+  { path: 'privacy', component: PrivacyPageComponent, title: 'Privacy Policy' },
+  { path: 'mapa', component: MapPageComponent, title: 'Map' },
+  { path: 'alertas/:id', component: AlertDetailComponent, title: 'Alert detail' },
   { path: 'alertas', redirectTo: '', pathMatch: 'full' },
   { path: 'how-it-works', component: HowItWorksComponent, title: 'How it works' },
-  { path: 'recursos', component: ResourcesComponent, title: 'Recursos' },
-  { path: 'reportar', component: ReportComponent, title: 'Reportar' },
+  { path: 'recursos', component: ResourcesComponent, title: 'Resources' },
+  { path: 'reportar', component: ReportComponent, title: 'Report' },
   { path: '**', redirectTo: '' },
 ];

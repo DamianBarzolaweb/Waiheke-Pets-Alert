@@ -39,7 +39,7 @@ export class LoginComponent {
       },
       error: () => {
         this.submitting.set(false);
-        this.error.set('Usuario o contraseña incorrectos.');
+        this.error.set('Invalid username or password.');
       },
     });
   }

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 import jwt
-from sqlalchemy import inspect, text
+from sqlalchemy import func, inspect, text
 from dotenv import load_dotenv
 from flask import Flask, abort, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -65,6 +65,28 @@ db = SQLAlchemy(app)
 
 def utcnow():
     return datetime.now(timezone.utc)
+
+
+def email_only_registration() -> bool:
+    """When enabled (default on), signup uses email OTP only; WhatsApp/Twilio step is skipped.
+    Set REGISTRATION_EMAIL_ONLY=0|false|no to restore phone/SMS OTP via Twilio."""
+
+    return os.getenv("REGISTRATION_EMAIL_ONLY", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+    )
+
+
+def _normalize_login_email(email: str) -> str:
+    return (email or "").strip().lower()
+
+
+def _valid_signup_email(normalized_lowercase: str) -> bool:
+    e = normalized_lowercase
+    if len(e) < 5 or len(e) > 118:
+        return False
+    return bool(re.match(r"^[a-z0-9._%+\-]+@[a-z0-9.-]+\.[a-z]{2,}$", e))
 
 
 def skip_whatsapp_otp_enabled() -> bool:
@@ -135,7 +157,7 @@ class Usuario(db.Model):
 
 
 class RegistroPendiente(db.Model):
-    """Sustituye la sesión de Latinos: datos hasta verificar el teléfono con Twilio."""
+    """Pending signup until phone or email OTP succeeds."""
 
     __tablename__ = "registro_pendiente"
     id = db.Column(db.String(36), primary_key=True)
@@ -145,6 +167,7 @@ class RegistroPendiente(db.Model):
     nombre_completo = db.Column(db.String(100), nullable=False)
     whatsapp = db.Column(db.String(20), nullable=False)
     otp_whatsapp = db.Column(db.String(6), nullable=True)
+    otp_email = db.Column(db.String(6), nullable=True)
     creado = db.Column(db.DateTime, default=lambda: datetime.utcnow())
     expira = db.Column(db.DateTime, nullable=False)
 
@@ -254,10 +277,10 @@ def require_auth(f):
         if token.startswith("Bearer "):
             token = token[7:]
         if not token:
-            return jsonify({"error": "Se requiere token"}), 401
+            return jsonify({"error": "Authentication required"}), 401
         payload = verify_jwt_token(token)
         if not payload:
-            return jsonify({"error": "Token inválido o expirado"}), 401
+            return jsonify({"error": "Invalid or expired token"}), 401
         return f(payload, *args, **kwargs)
 
     return decorated
@@ -324,10 +347,13 @@ def migrate_registro_pendiente_otp_whatsapp() -> None:
         if "registro_pendiente" not in tables:
             return
         cols = {c["name"] for c in insp.get_columns("registro_pendiente")}
-        if "otp_whatsapp" in cols:
-            return
-        db.session.execute(text("ALTER TABLE registro_pendiente ADD COLUMN otp_whatsapp VARCHAR(6)"))
-        db.session.commit()
+        if "otp_whatsapp" not in cols:
+            db.session.execute(text("ALTER TABLE registro_pendiente ADD COLUMN otp_whatsapp VARCHAR(6)"))
+            db.session.commit()
+            cols.add("otp_whatsapp")
+        if "otp_email" not in cols:
+            db.session.execute(text("ALTER TABLE registro_pendiente ADD COLUMN otp_email VARCHAR(6)"))
+            db.session.commit()
     except Exception as e:
         print(f"migrate_registro_pendiente_otp_whatsapp: {e}")
         db.session.rollback()
@@ -399,6 +425,12 @@ def health():
     return jsonify({"ok": True, "service": "waiheke-pets-alert"})
 
 
+@app.route("/api/auth/registration-options", methods=["GET"])
+def registration_options():
+    """So the SPA can hide phone fields when signup is email-only."""
+    return jsonify({"emailOnly": email_only_registration()})
+
+
 @app.route("/api/alerts", methods=["GET"])
 def list_alerts():
     rows = PetAlert.query.order_by(PetAlert.creado.desc()).all()
@@ -421,10 +453,10 @@ def create_alert():
     status = "Lost" if kind in ("lost", "perdido") else "Sighted"
     pet_name = (data.get("petName") or data.get("name") or "").strip()
     if status == "Lost" and not pet_name:
-        return jsonify({"error": "petName es requerido"}), 400
+        return jsonify({"error": "petName is required for lost pets"}), 400
     description = (data.get("description") or "").strip()
     if not description:
-        return jsonify({"error": "description es requerida"}), 400
+        return jsonify({"error": "description is required"}), 400
     breed = (data.get("breed") or "").strip() or "Unknown"
     seen_date = (data.get("seenDate") or "").strip()
     seen_time = (data.get("seenTime") or "").strip()
@@ -433,7 +465,7 @@ def create_alert():
         lat_f = float(data["lat"])
         lng_f = float(data["lng"])
     except (KeyError, TypeError, ValueError):
-        return jsonify({"error": "lat y lng válidos son requeridos"}), 400
+        return jsonify({"error": "valid lat and lng are required"}), 400
     lat_f = max(-37.05, min(-36.68, lat_f))
     lng_f = max(174.85, min(175.28, lng_f))
     location_txt = (
@@ -471,36 +503,107 @@ def create_alert():
 @app.route("/api/auth/register/start", methods=["POST"])
 @limiter.limit("15 per hour")
 def register_start():
-    from latinos_auth_utils import iniciar_verificacion_whatsapp, validar_numero_whatsapp
+    from latinos_auth_utils import (
+        enviar_email_verificacion_mailgun_pets,
+        generar_codigo_seis,
+        iniciar_verificacion_whatsapp,
+        validar_numero_whatsapp,
+    )
 
     data = request.get_json(silent=True) or {}
     if not data.get("aceptoTerminos"):
-        return jsonify({"error": "Debes aceptar los términos y condiciones."}), 400
+        return jsonify({"error": "You must accept the terms and conditions."}), 400
     username = (data.get("username") or "").strip()
     password = (data.get("password") or "").strip()
     nombre = (data.get("nombreCompleto") or "").strip()
-    email = (data.get("email") or "").strip() or None
+    email_raw_in = _normalize_login_email(data.get("email") or "")
     whatsapp_raw = (data.get("whatsapp") or "").strip()
     if not username or len(username) < 2:
-        return jsonify({"error": "El nombre de usuario debe tener al menos 2 caracteres."}), 400
+        return jsonify({"error": "Username must be at least 2 characters."}), 400
     if not password or len(password) < 6:
-        return jsonify({"error": "La contraseña debe tener al menos 6 caracteres."}), 400
+        return jsonify({"error": "Password must be at least 6 characters."}), 400
     if not nombre:
-        return jsonify({"error": "El nombre completo es obligatorio."}), 400
+        return jsonify({"error": "Full name is required."}), 400
+
+    if email_only_registration():
+        if not email_raw_in:
+            return jsonify({"error": "Email is required."}), 400
+        if not _valid_signup_email(email_raw_in):
+            return jsonify({"error": "Invalid email address."}), 400
+        phone_opt = None
+        wa_store = ""
+        if whatsapp_raw:
+            ok, phone_opt, err = validar_numero_whatsapp(whatsapp_raw)
+            if not ok or not phone_opt:
+                return jsonify({"error": err or "Invalid phone number"}), 400
+            wa_store = phone_opt
+
+        if Usuario.query.filter_by(username=username).first():
+            return jsonify({"error": "This username is already taken."}), 400
+        if wa_store and Usuario.query.filter_by(whatsapp=wa_store).first():
+            return jsonify({"error": "This phone number is already registered."}), 400
+        if Usuario.query.filter(func.lower(Usuario.email) == email_raw_in).first():
+            return jsonify({"error": "This email is already registered."}), 400
+
+        q_email = db.session.query(RegistroPendiente).filter(
+            RegistroPendiente.email.isnot(None), func.lower(RegistroPendiente.email) == email_raw_in
+        )
+        for rp in q_email.all():
+            db.session.delete(rp)
+        if wa_store:
+            for rp in RegistroPendiente.query.filter(RegistroPendiente.whatsapp == wa_store).all():
+                db.session.delete(rp)
+        for rp in RegistroPendiente.query.filter(RegistroPendiente.username == username).all():
+            db.session.delete(rp)
+        db.session.commit()
+
+        otp_plain = generar_codigo_seis()
+        rid = str(uuid.uuid4())
+        pr = RegistroPendiente(
+            id=rid,
+            username=username,
+            password_hash=generate_password_hash(password),
+            nombre_completo=nombre,
+            email=email_raw_in,
+            whatsapp=wa_store if wa_store else "",
+            expira=datetime.utcnow() + timedelta(hours=1),
+            otp_whatsapp=None,
+            otp_email=otp_plain,
+        )
+        db.session.add(pr)
+        db.session.commit()
+        if not enviar_email_verificacion_mailgun_pets(email_raw_in, otp_plain, nombre):
+            db.session.delete(pr)
+            db.session.commit()
+            return jsonify({"error": "Could not send the verification email. Try again."}), 502
+        body: dict = {
+            "registrationId": rid,
+            "message": "Verification code sent to your email.",
+            "verificationChannel": "email",
+            "skipPhoneOtp": True,
+        }
+        flask_env = (os.getenv("FLASK_ENV") or "").strip().lower()
+        expose = flask_env == "development" or (
+            os.getenv("DEV_EXPOSE_REGISTRATION_OTP", "").strip().lower() in ("1", "true", "yes")
+        )
+        if expose:
+            body["devVerificationCode"] = otp_plain
+        return jsonify(body)
+
+    # Phone / WhatsApp OTP (Twilio Verify) pathway
     ok, phone, err = validar_numero_whatsapp(whatsapp_raw)
     if not ok or not phone:
-        return jsonify({"error": err or "Número inválido"}), 400
+        return jsonify({"error": err or "Invalid phone number"}), 400
+    email_lc = email_raw_in or None
     if Usuario.query.filter_by(username=username).first():
-        return jsonify({"error": "Este nombre de usuario ya está en uso."}), 400
+        return jsonify({"error": "This username is already taken."}), 400
     if Usuario.query.filter_by(whatsapp=phone).first():
-        return jsonify({"error": "Este número de teléfono ya está registrado."}), 400
-    if email and Usuario.query.filter_by(email=email).first():
-        return jsonify({"error": "Este email ya está registrado."}), 400
+        return jsonify({"error": "This phone number is already registered."}), 400
+    if email_lc and Usuario.query.filter(func.lower(Usuario.email) == email_lc).first():
+        return jsonify({"error": "This email is already registered."}), 400
     for rp in RegistroPendiente.query.filter(RegistroPendiente.whatsapp == phone).all():
         db.session.delete(rp)
-    for rp in RegistroPendiente.query.filter(
-        RegistroPendiente.username == username
-    ).all():
+    for rp in RegistroPendiente.query.filter(RegistroPendiente.username == username).all():
         db.session.delete(rp)
     db.session.commit()
     if skip_whatsapp_otp_enabled():
@@ -513,79 +616,151 @@ def register_start():
         username=username,
         password_hash=generate_password_hash(password),
         nombre_completo=nombre,
-        email=email,
+        email=email_lc,
         whatsapp=phone,
         expira=datetime.utcnow() + timedelta(hours=1),
         otp_whatsapp=otp_plain,
+        otp_email=None,
     )
     db.session.add(pr)
     db.session.commit()
     if not ok_send:
         db.session.delete(pr)
         db.session.commit()
-        return jsonify({"error": "No se pudo enviar el código. Intentá de nuevo."}), 502
+        return jsonify({"error": "Could not send the code. Try again."}), 502
     if skip_whatsapp_otp_enabled():
-        msg_register = "Verificación por WhatsApp omitida (desarrollo; SKIP_WHATSAPP_OTP)."
+        msg_register = "Phone verification skipped (development; SKIP_WHATSAPP_OTP)."
     elif otp_plain is None:
-        msg_register = f"Código enviado por WhatsApp a {phone}."
+        msg_register = f"Verification code sent to {phone}."
     else:
         msg_register = (
-            "Modo local: no se usó Twilio. Revisá la consola del servidor o el código abajo."
+            "Local mode: Twilio was not used. Check the server console or the hint below."
         )
-    body: dict = {
+    body_phone: dict = {
         "registrationId": rid,
         "message": msg_register,
+        "verificationChannel": "phone",
     }
     if skip_whatsapp_otp_enabled():
-        body["skipPhoneOtp"] = True
+        body_phone["skipPhoneOtp"] = True
     flask_env = (os.getenv("FLASK_ENV") or "").strip().lower()
-    expose = flask_env == "development" or (
+    expose_phone = flask_env == "development" or (
         os.getenv("DEV_EXPOSE_REGISTRATION_OTP", "").strip().lower() in ("1", "true", "yes")
     )
-    if otp_plain and expose:
+    if otp_plain and expose_phone:
         import urllib.parse
 
         wa_text = (
-            f"Waiheke Pets Alert — tu código: {otp_plain}\n\n"
-            f"(desarrollo local; también está en la web y en la terminal del servidor.)"
+            f"Waiheke Pets Alert — your code: {otp_plain}\n\n"
+            f"(local dev; also shown in the UI and server terminal.)"
         )
-        body["devVerificationCode"] = otp_plain
-        body["devWhatsappComposeUrl"] = f"https://wa.me/?text={urllib.parse.quote(wa_text)}"
-    return jsonify(body)
+        body_phone["devVerificationCode"] = otp_plain
+        body_phone["devWhatsappComposeUrl"] = f"https://wa.me/?text={urllib.parse.quote(wa_text)}"
+    return jsonify(body_phone)
+
+
+@app.route("/api/auth/register/resend-email-code", methods=["POST"])
+@limiter.limit("10 per hour")
+def register_resend_pending_email():
+    """Resend OTP for email-only signup (no JWT yet)."""
+    from latinos_auth_utils import enviar_email_verificacion_mailgun_pets, generar_codigo_seis
+
+    if not email_only_registration():
+        return jsonify({"error": "Not applicable when phone OTP registration is enabled."}), 400
+    data = request.get_json(silent=True) or {}
+    rid = (data.get("registrationId") or "").strip()
+    if not rid:
+        return jsonify({"error": "registrationId is required"}), 400
+    pr = RegistroPendiente.query.get(rid)
+    if not pr or pr.expira < datetime.utcnow():
+        return jsonify({"error": "Registration expired. Start again."}), 400
+    if not pr.email:
+        return jsonify({"error": "Nothing to resend."}), 400
+    otp = generar_codigo_seis()
+    pr.otp_email = otp
+    db.session.commit()
+    if enviar_email_verificacion_mailgun_pets(pr.email, otp, pr.nombre_completo):
+        return jsonify({"ok": True})
+    return jsonify({"error": "Could not send email."}), 502
 
 
 @app.route("/api/auth/register/verify-phone", methods=["POST"])
 @limiter.limit("30 per hour")
 def register_verify_phone():
-    from latinos_auth_utils import (
-        enviar_email_verificacion_mailgun_pets,
-        verificar_codigo_twilio,
-    )
+    from latinos_auth_utils import enviar_email_verificacion_mailgun_pets, verificar_codigo_twilio
 
     data = request.get_json(silent=True) or {}
     rid = (data.get("registrationId") or "").strip()
     code = (data.get("code") or "").strip()
     skip_otp = skip_whatsapp_otp_enabled()
     if not rid:
-        return jsonify({"error": "registrationId es requerido"}), 400
-    if not skip_otp and not code:
-        return jsonify({"error": "registrationId y code son requeridos"}), 400
+        return jsonify({"error": "registrationId is required"}), 400
+
     pr = RegistroPendiente.query.get(rid)
     if not pr or pr.expira < datetime.utcnow():
-        return jsonify({"error": "Registro expirado. Empezá de nuevo."}), 400
+        return jsonify({"error": "Registration expired. Start again."}), 400
+
+    # Email-only signup: code matches pending row; user is verified in one step.
+    if email_only_registration():
+        if not code:
+            return jsonify({"error": "registrationId and code are required"}), 400
+        if pr.otp_email is None or pr.otp_email.strip() != code.strip():
+            return jsonify({"error": "Incorrect code."}), 400
+        wa_for_user = pr.whatsapp.strip() if pr.whatsapp else ""
+        wa_for_user = wa_for_user or None
+        if Usuario.query.filter_by(username=pr.username).first():
+            db.session.delete(pr)
+            db.session.commit()
+            return jsonify({"error": "User already exists. Log in instead."}), 400
+        if wa_for_user and Usuario.query.filter_by(whatsapp=wa_for_user).first():
+            db.session.delete(pr)
+            db.session.commit()
+            return jsonify({"error": "Phone number already registered."}), 400
+        email_p = _normalize_login_email(pr.email) if pr.email else None
+        if email_p:
+            dup_e = Usuario.query.filter(func.lower(Usuario.email) == email_p).first()
+            if dup_e:
+                db.session.delete(pr)
+                db.session.commit()
+                return jsonify({"error": "This email is already registered."}), 400
+        u = Usuario(
+            username=pr.username,
+            email=email_p,
+            nombre_completo=pr.nombre_completo,
+            whatsapp=wa_for_user,
+            whatsapp_verificado=False,
+            email_verificado=bool(email_p),
+        )
+        u.password_hash = pr.password_hash
+        db.session.delete(pr)
+        db.session.add(u)
+        db.session.commit()
+        token = create_jwt_token(u.id, u.username, u.es_admin)
+        return jsonify(
+            {
+                "token": token,
+                "user": user_to_dict(u),
+                "needsEmailVerification": False,
+            }
+        )
+
+    # Phone OTP pathway
+    if not skip_otp and not code:
+        return jsonify({"error": "registrationId and code are required"}), 400
     if not skip_otp and not verificar_codigo_twilio(
         pr.whatsapp, code, otp_esperado=pr.otp_whatsapp
     ):
-        return jsonify({"error": "Código incorrecto."}), 400
+        return jsonify({"error": "Incorrect code."}), 400
     if Usuario.query.filter_by(username=pr.username).first():
         db.session.delete(pr)
         db.session.commit()
-        return jsonify({"error": "El usuario ya existe. Iniciá sesión."}), 400
+        return jsonify({"error": "User already exists. Log in instead."}), 400
     if Usuario.query.filter_by(whatsapp=pr.whatsapp).first():
         db.session.delete(pr)
         db.session.commit()
-        return jsonify({"error": "El teléfono ya está registrado."}), 400
-    email_p = pr.email
+        return jsonify({"error": "Phone number already registered."}), 400
+    raw_email_p = _normalize_login_email(pr.email or "") if pr.email else ""
+    email_p = raw_email_p or None
     nombre_p = pr.nombre_completo
     u = Usuario(
         username=pr.username,
@@ -621,19 +796,19 @@ def verify_email(payload):
     code = (data.get("code") or "").strip()
     u = Usuario.query.get(payload["user_id"])
     if not u or not u.email:
-        return jsonify({"error": "No hay email pendiente de verificar."}), 400
+        return jsonify({"error": "No email pending verification."}), 400
     if u.email_verificado:
         tok = create_jwt_token(u.id, u.username, u.es_admin)
         return jsonify({"token": tok, "user": user_to_dict(u)})
     if u.codigo_verificacion != code:
-        return jsonify({"error": "Código incorrecto o expirado (10 min)."}), 400
+        return jsonify({"error": "Incorrect or expired code (10 min)."}), 400
     if not u.fecha_codigo:
-        return jsonify({"error": "Solicitá un código nuevo."}), 400
+        return jsonify({"error": "Request a new code."}), 400
     fc = u.fecha_codigo
     if fc.tzinfo is None:
         fc = fc.replace(tzinfo=timezone.utc)
     if datetime.now(timezone.utc) - fc >= timedelta(minutes=10):
-        return jsonify({"error": "Código expirado. Pedí otro."}), 400
+        return jsonify({"error": "Code expired. Request another."}), 400
     u.email_verificado = True
     u.codigo_verificacion = None
     u.fecha_codigo = None
@@ -649,12 +824,12 @@ def resend_email(payload):
 
     u = Usuario.query.get(payload["user_id"])
     if not u or not u.email or u.email_verificado:
-        return jsonify({"error": "Nada que reenviar."}), 400
+        return jsonify({"error": "Nothing to resend."}), 400
     c = u.generar_codigo_verificacion_email()
     db.session.commit()
     if enviar_email_verificacion_mailgun_pets(u.email, c, u.nombre_completo):
         return jsonify({"ok": True})
-    return jsonify({"error": "No se pudo enviar el email."}), 500
+    return jsonify({"error": "Could not send email."}), 500
 
 
 @app.route("/api/auth/login", methods=["POST"])
@@ -664,10 +839,10 @@ def login():
     username = (data.get("username") or "").strip()
     password = (data.get("password") or "").strip()
     if not username or not password:
-        return jsonify({"error": "username y password requeridos"}), 400
+        return jsonify({"error": "username and password are required"}), 400
     u = Usuario.query.filter_by(username=username).first()
     if not u or not u.check_password(password):
-        return jsonify({"error": "Credenciales inválidas"}), 401
+        return jsonify({"error": "Invalid credentials"}), 401
     token = create_jwt_token(u.id, u.username, u.es_admin)
     return jsonify({"token": token, "user": user_to_dict(u)})
 
@@ -677,7 +852,7 @@ def login():
 def me(payload):
     u = Usuario.query.get(payload["user_id"])
     if not u:
-        return jsonify({"error": "Usuario no encontrado"}), 404
+        return jsonify({"error": "User not found"}), 404
     return jsonify(user_to_dict(u))
 
 
@@ -691,11 +866,11 @@ def _serve_angular_asset(path_within: str):
     index_path = os.path.join(root_dir, "index.html")
     if not os.path.isfile(index_path):
         msg = (
-            "<!DOCTYPE html><html lang='es'><meta charset=utf-8><title>Sin frontend</title>"
+            "<!DOCTYPE html><html lang='en'><meta charset=utf-8><title>Frontend not built</title>"
             "<body style='font-family:system-ui;margin:2rem'>"
-            "<h1>Falta el bundle de Angular</h1>"
-            "<p>En desarrollo: <code>npm run build</code>. "
-            "En Heroku debe ejecutarse el build de Node antes de lanzar Flask.</p>"
+            "<h1>Angular bundle missing</h1>"
+            "<p>Local: run <code>npm run build</code>. "
+            "On Heroku run the Node build before starting Flask.</p>"
             "</body></html>"
         )
         return msg, 503, {"Content-Type": "text/html; charset=utf-8"}
@@ -712,7 +887,7 @@ def _serve_angular_asset(path_within: str):
 @app.route("/", defaults={"path_within": ""}, methods=["GET"])
 @app.route("/<path:path_within>", methods=["GET"])
 def spa(path_within):
-    """Angular en el mismo host; las rutas /api tienen handlers propios declarados antes."""
+    """Serve Angular on the same host; /api/* has dedicated handlers declared above."""
     return _serve_angular_asset(path_within)
 
 
@@ -720,7 +895,7 @@ def _init():
     with app.app_context():
         db.create_all()
         migrate_usuario_auth_columns()
-        migrate_registro_pendiente_otp_whatsapp()
+        migrate_registro_pendiente_otp_whatsapp()  # also ensures otp_email column
         seed_if_empty()
         migrate_demo_images_from_google()
         ensure_dev_user()

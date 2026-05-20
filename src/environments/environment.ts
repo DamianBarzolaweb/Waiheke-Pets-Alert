@@ -1,8 +1,8 @@
 /**
- * Producción (Netlify/static, etc.):
- * Definí `window.__WPA_API_BASE__` en src/index.html (script antes de `<app-root>`), p. ej.:
- *   window.__WPA_API_BASE__ = 'https://tu-api.herokuapp.com';
- * Sin eso queda cadena vacía y las llamadas `/api` fallan salvo mismo origen/host.
+ * Production (Netlify/static, etc.):
+ * Define `window.__WPA_API_BASE__` in src/index.html (script before `<app-root>`), e.g.:
+ *   window.__WPA_API_BASE__ = 'https://your-api.herokuapp.com';
+ * Without it, the value is empty and `/api` calls fail unless same origin/host.
  */
 declare global {
   interface Window {

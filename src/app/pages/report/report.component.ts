@@ -59,7 +59,7 @@ export class ReportComponent {
     this.pickedPin.set(coords);
   }
 
-  /** Scroll al mapa y recalcula tiles (útil después de layout o desde el botón). */
+  /** Scroll to map and invalidate tile size (after layout or from button). */
   focusPickMap(): void {
     document.getElementById('report-map-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(() => this.reportMapRef?.invalidateSize(), 380);
@@ -68,7 +68,7 @@ export class ReportComponent {
   onSubmit(event: Event): void {
     event.preventDefault();
     if (!this.pickedPin()) {
-      this.submitError.set('Elegí un punto en el mapa (tocá el mapa o arrastrá el pin).');
+      this.submitError.set('Pick a spot on the map (tap the map or drag the pin).');
       void this.focusPickMap();
       return;
     }
@@ -104,7 +104,9 @@ export class ReportComponent {
         },
         error: () => {
           this.submitting.set(false);
-          this.submitError.set('No se pudo enviar el reporte. Intentá de nuevo o comprobá que el API esté en marcha.');
+          this.submitError.set(
+            'Could not submit the report. Try again or check that the API is running.',
+          );
         },
       });
   }

@@ -110,8 +110,8 @@
       <div>
         <p class="block text-xs font-bold uppercase tracking-widest text-outline mb-2">Last known location</p>
         <p class="text-xs text-on-surface-variant mb-3 max-w-xl">
-          El mapa muestra las alertas actuales. Tocá el mapa para colocar tu pin (o arrastralo para ajustar). Es la misma vista que
-          <a routerLink="/mapa" class="font-bold text-primary underline">el mapa en vivo</a>; al publicar, el pin queda guardado ahí.
+          The map shows current alerts. Tap the map to place your pin (or drag it to adjust). Same view as
+          <a routerLink="/mapa" class="font-bold text-primary underline">the live map</a>; when you publish, the pin is saved there.
         </p>
         <div
           id="report-map-wrap"
@@ -135,7 +135,7 @@
             class="inline-flex items-center gap-2 rounded-full bg-surface-container-high px-4 py-2 text-xs font-extrabold uppercase tracking-widest text-primary ring-1 ring-on-surface/[0.08] hover:bg-surface-container-highest transition"
           >
             <span class="material-symbols-outlined text-base">add_location</span>
-            Set pin en el mapa
+            Set pin on the map
           </button>
           @if (pickedPin(); as pin) {
             <span class="text-xs font-semibold text-on-surface-variant">
@@ -143,7 +143,7 @@
               <span class="text-on-surface">{{ pin.lat | number : '1.4-4' }}°, {{ pin.lng | number : '1.4-4' }}°</span>
             </span>
           } @else {
-            <span class="text-xs font-medium text-outline">Aún no hay pin — tocá el mapa arriba.</span>
+            <span class="text-xs font-medium text-outline">No pin yet — tap the map above.</span>
           }
         </div>
       </div>

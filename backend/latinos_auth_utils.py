@@ -1,5 +1,5 @@
 """
-Misma lógica que Waiheke Latinos: teléfono (phonenumbers), Twilio Verify, Mailgun.
+Phone validation (phonenumbers), Twilio Verify, Mailgun — shared pattern with Latinos-style auth.
 """
 import os
 import random
@@ -9,24 +9,25 @@ import requests
 
 def validar_numero_whatsapp(numero: str):
     """
-    Valida y formatea un número. Retorna (es_valido, e164, mensaje_error).
+    Validate and normalize a mobile number.
+    Returns (is_valid, e164_or_none, error_message_or_none).
     """
     try:
         import phonenumbers
         from phonenumbers import NumberParseException
     except ImportError:
         print(
-            "[ERROR] phonenumbers no instalado. Ej.: cd backend && .venv/bin/pip install -r requirements.txt",
+            "[ERROR] phonenumbers missing. e.g.: cd backend && .venv/bin/pip install -r requirements.txt",
             flush=True,
         )
         return (
             False,
             None,
-            "Servidor incompleto: falta phonenumbers. En backend corré pip install -r requirements.txt usando el mismo Python del venv.",
+            "Server misconfigured: install phonenumbers in the backend venv.",
         )
 
     if not numero or not numero.strip():
-        return (False, None, "El número de teléfono es obligatorio para registrarse.")
+        return (False, None, "A mobile phone number is required to sign up.")
 
     try:
         numero = numero.strip().replace(" ", "")
@@ -55,9 +56,9 @@ def validar_numero_whatsapp(numero: str):
                 return (
                     False,
                     None,
-                    "Número argentino inválido. Para móviles: +54 9 [código] [número].",
+                    "Invalid Argentina number. For mobiles use +54 9 [area] [number].",
                 )
-            return (False, None, "Número no válido. Usa formato internacional (+64...).")
+            return (False, None, "Invalid number. Use international format (e.g. +64 …).")
 
         nt = phonenumbers.number_type(parsed)
         if nt not in (
@@ -65,23 +66,23 @@ def validar_numero_whatsapp(numero: str):
             phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE,
         ):
             if numero.startswith("+54"):
-                return (False, None, "Solo móviles. Ej: +54 9 ...")
-            return (False, None, "Solo se aceptan números móviles.")
+                return (False, None, "Mobile numbers only (e.g. +54 9 …).")
+            return (False, None, "Only mobile numbers are accepted.")
 
         e164 = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
         return (True, e164, None)
     except NumberParseException:
         if numero and numero.startswith("+54"):
-            return (False, None, "Formato incorrecto para Argentina. Usa +54 9 ...")
-        return (False, None, "Formato de número incorrecto. Ej: +64 21 123 4567")
+            return (False, None, "Wrong format for Argentina. Use +54 9 …")
+        return (False, None, "Invalid phone format (e.g. +64 21 123 4567).")
     except Exception as e:
-        return (False, None, f"Error al validar: {e}")
+        return (False, None, f"Validation error: {e}")
 
 
 def iniciar_verificacion_whatsapp(numero_e164: str, nombre: str) -> tuple[bool, str | None]:
     """
-    Twilio Verify (WhatsApp) si hay credenciales; si no — o con DEV_SIMULATE_TWILIO=1 —
-    simula OTP y devuelve el código en texto plano para guardarlo en BD (solo desarrollo).
+    Twilio Verify (SMS/WhatsApp) when credentials are set; otherwise — or if DEV_SIMULATE_TWILIO=1 —
+    simulate OTP for local dev (code printed/stored plainly).
     """
     force_sim = os.getenv("DEV_SIMULATE_TWILIO", "").lower() in ("1", "true", "yes")
     sid = os.getenv("TWILIO_ACCOUNT_SID") or ""
@@ -91,14 +92,14 @@ def iniciar_verificacion_whatsapp(numero_e164: str, nombre: str) -> tuple[bool, 
 
     if force_sim or not configured:
         code = generar_codigo_seis()
-        nombre_s = nombre or "usuario"
+        nombre_s = nombre or "friend"
         body = (
-            f"Hola {nombre_s},\n"
-            f"Tu código Waiheke Pets Alert: {code}\n"
-            f"(mensaje simulado en servidor local — sin Twilio.)"
+            f"Hi {nombre_s},\n"
+            f"Your Waiheke Pets Alert code: {code}\n"
+            f"(simulated locally — Twilio not used.)"
         )
         print("\n" + "=" * 60)
-        print(f"[DEV WhatsApp simulado] número del formulario: {numero_e164}")
+        print(f"[DEV simulated OTP] submitted number: {numero_e164}")
         print(body)
         print("=" * 60 + "\n")
         return True, code
@@ -117,12 +118,12 @@ def iniciar_verificacion_whatsapp(numero_e164: str, nombre: str) -> tuple[bool, 
         )
         return True, None
     except Exception as e:
-        print(f"Error Twilio Verify: {e}")
+        print(f"Twilio Verify error: {e}")
         return False, None
 
 
 def enviar_codigo_whatsapp_twilio(numero_e164: str, nombre: str) -> bool:
-    """Compatibilidad — preferí iniciar_verificacion_whatsapp."""
+    """Legacy — prefer iniciar_verificacion_whatsapp."""
     ok, _ = iniciar_verificacion_whatsapp(numero_e164, nombre)
     return ok
 
@@ -148,13 +149,12 @@ def verificar_codigo_twilio(
             )
             return r.status == "approved"
         except Exception as e:
-            print(f"Error al verificar código Twilio: {e}")
+            print(f"Twilio verify check error: {e}")
             return False
 
-    # Sin Twilio: código guardado al iniciar registro local, u otro código de 6 dígitos (modo laxo antiguo)
     if otp_esperado and codigo == otp_esperado.strip():
         return True
-    print("[DEV] Twilio no configurado: código de 6 dígitos válido cualquiera.")
+    print("[DEV] Twilio not configured: any 6-digit code is accepted.")
     return len(codigo) == 6 and codigo.isdigit()
 
 
@@ -166,23 +166,23 @@ def enviar_email_verificacion_mailgun_pets(email: str, codigo: str, nombre: str)
     key = os.getenv("MAILGUN_API_KEY")
     domain = os.getenv("MAILGUN_DOMAIN")
     if not key or not domain:
-        print(f"[DEV] Mailgun no configurado. Código email para {email}: {codigo}")
+        print(f"[DEV] Mailgun not configured. Email code for {email}: {codigo}")
         return True
     try:
         url = f"https://api.mailgun.net/v3/{domain}/messages"
         data = {
             "from": f"Waiheke Pets Alert <noreply@{domain}>",
             "to": email,
-            "subject": "Verifica tu cuenta - Waiheke Pets Alert",
-            "text": f"Hola {nombre}, tu código es: {codigo} (válido 10 minutos).",
+            "subject": "Verify your account — Waiheke Pets Alert",
+            "text": f"Hi {nombre}, your code is: {codigo} (valid 10 minutes).",
             "html": f"""
-            <p>Hola {nombre},</p>
-            <p>Tu código de verificación es: <strong style="font-size:24px;">{codigo}</strong></p>
-            <p>Expira en 10 minutos.</p>
+            <p>Hi {nombre},</p>
+            <p>Your verification code is: <strong style="font-size:24px;">{codigo}</strong></p>
+            <p>Expires in 10 minutes.</p>
             """,
         }
         r = requests.post(url, auth=("api", key), data=data, timeout=20)
         return r.status_code == 200
     except Exception as e:
-        print(f"Error Mailgun: {e}")
+        print(f"Mailgun error: {e}")
         return False

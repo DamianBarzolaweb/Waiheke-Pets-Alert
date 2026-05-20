@@ -73,9 +73,9 @@ export class AuthService {
     return this.http.post<{
       registrationId: string;
       message: string;
-      /** Backend en desarrollo con SKIP_WHATSAPP_OTP: el front puede llamar verify-phone sin OTP real */
+      /** Email code (default) or phone OTP when REGISTRATION_EMAIL_ONLY=0 and Twilio path */
+      verificationChannel?: 'email' | 'phone';
       skipPhoneOtp?: boolean;
-      /** Solo desarrollo sin Twilio */
       devVerificationCode?: string;
       devWhatsappComposeUrl?: string;
     }>(apiUrl('/api/auth/register/start'), body);
@@ -87,6 +87,12 @@ export class AuthService {
       user: AuthUser;
       needsEmailVerification: boolean;
     }>(apiUrl('/api/auth/register/verify-phone'), { registrationId, code });
+  }
+
+  registerResendSignupEmail(registrationId: string) {
+    return this.http.post<{ ok?: boolean }>(apiUrl('/api/auth/register/resend-email-code'), {
+      registrationId,
+    });
   }
 
   verifyEmail(code: string) {

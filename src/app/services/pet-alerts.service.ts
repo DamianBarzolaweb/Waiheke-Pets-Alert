@@ -5,7 +5,7 @@ import { apiUrl } from '../lib/api-url';
 import type { PetAlert } from '../models/pet-alert.model';
 
 export interface ReportPayload {
-  /** Solo aplica a reportes "lost"; en "sighted" se envía vacío. */
+  /** Only used for "lost" reports; empty for "sighted". */
   petName: string;
   breed?: string;
   kind: 'lost' | 'sighted';
@@ -39,7 +39,7 @@ export class PetAlertsService {
         this.loading.set(false);
       },
       error: () => {
-        this.loadError.set('No se pudieron cargar las alertas. ¿Está el servidor API en marcha?');
+        this.loadError.set('Could not load alerts. Is the API server running?');
         this._alerts.set([]);
         this.loading.set(false);
       },
@@ -50,7 +50,7 @@ export class PetAlertsService {
     return this._alerts().find((a) => a.id === id);
   }
 
-  /** Crear alerta desde el formulario de reporte (POST estilo API Latinos). */
+  /** Create alert from report form (Latinos-style POST). */
   submitReport(payload: ReportPayload): Observable<PetAlert> {
     return this.http
       .post<PetAlert>(apiUrl('/api/alerts'), {

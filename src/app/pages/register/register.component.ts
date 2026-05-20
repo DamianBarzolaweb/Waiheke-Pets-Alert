@@ -1,9 +1,13 @@
-import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Component, inject, OnInit, signal } from '@angular/core';
+import {
+  FormBuilder,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
-import type { AuthUser } from '../../models/auth-user.model';
+import { apiUrl } from '../../lib/api-url';
 
 @Component({
   selector: 'app-register',
@@ -11,44 +15,61 @@ import type { AuthUser } from '../../models/auth-user.model';
   templateUrl: './register.component.html',
   styleUrl: './register.component.scss',
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
+  private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
 
-  /** 1 datos, 2 código WhatsApp, 3 código email */
-  readonly step = signal<1 | 2 | 3>(1);
+  /** Mirrors backend REGISTRATION_EMAIL_ONLY (default true in local run_dev.sh). */
+  readonly registrationEmailOnly = signal(true);
+
+  /** 1 form, 2 verify (email code or phone code) */
+  readonly step = signal<1 | 2>(1);
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
   readonly registrationId = signal<string | null>(null);
+  readonly verifyChannel = signal<'email' | 'phone'>('email');
   readonly devRegisterHints = signal<{
     code: string;
-    whatsappComposeUrl: string;
+    whatsappComposeUrl?: string;
   } | null>(null);
-  readonly needsEmail = signal(false);
-  /** Confirmación tras reenvío de código de email */
-  readonly resendEmailOk = signal<string | null>(null);
+  /** After resending signup email (no JWT yet) */
+  readonly resendSignupOk = signal<string | null>(null);
 
   readonly form = this.fb.nonNullable.group({
     username: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(50)]],
     password: ['', [Validators.required, Validators.minLength(6)]],
     nombreCompleto: ['', [Validators.required]],
-    email: [''],
-    whatsapp: ['', [Validators.required]],
+    email: ['', [Validators.required, Validators.email]],
+    whatsapp: [''],
     aceptoTerminos: [false, Validators.requiredTrue],
   });
 
-  readonly codePhone = this.fb.nonNullable.control('', [
+  readonly codeSignup = this.fb.nonNullable.control('', [
     Validators.required,
     Validators.minLength(6),
     Validators.maxLength(6),
   ]);
 
-  readonly codeEmail = this.fb.nonNullable.control('', [
-    Validators.required,
-    Validators.minLength(6),
-    Validators.maxLength(6),
-  ]);
+  ngOnInit(): void {
+    this.http.get<{ emailOnly: boolean }>(apiUrl('/api/auth/registration-options')).subscribe({
+      next: (o) => {
+        const emailOnly = o.emailOnly !== false;
+        this.registrationEmailOnly.set(emailOnly);
+        if (!emailOnly) {
+          this.form.controls.email.clearValidators();
+          this.form.controls.email.setValidators([Validators.email]);
+          this.form.controls.email.updateValueAndValidity();
+          this.form.controls.whatsapp.setValidators([Validators.required]);
+          this.form.controls.whatsapp.updateValueAndValidity();
+        }
+      },
+      error: () => {
+        this.registrationEmailOnly.set(true);
+      },
+    });
+  }
 
   submitPaso1(ev: Event): void {
     ev.preventDefault();
@@ -71,23 +92,32 @@ export class RegisterComponent {
       })
       .subscribe({
         next: (r) => {
+          const channel = r.verificationChannel ?? 'email';
+          this.verifyChannel.set(channel === 'phone' ? 'phone' : 'email');
           this.registrationId.set(r.registrationId);
-          if (r.skipPhoneOtp) {
+
+          const devHints =
+            r.devVerificationCode != null && r.devVerificationCode !== ''
+              ? {
+                  code: r.devVerificationCode,
+                  ...(r.devWhatsappComposeUrl ? { whatsappComposeUrl: r.devWhatsappComposeUrl } : {}),
+                }
+              : null;
+          this.devRegisterHints.set(devHints);
+
+          if (channel === 'phone' && r.skipPhoneOtp) {
             this.submitting.set(true);
             this.auth.registerVerifyPhone(r.registrationId, '').subscribe({
-              next: (res) => this.onPhoneVerified(res),
-              error: (e) => this.onPhoneVerifyError(e),
+              next: ({ token, user }) => {
+                this.auth.applySession(token, user);
+                this.submitting.set(false);
+                void this.router.navigateByUrl('/');
+              },
+              error: (e) => this.onVerifyError(e),
             });
             return;
           }
-          if (r.devVerificationCode && r.devWhatsappComposeUrl) {
-            this.devRegisterHints.set({
-              code: r.devVerificationCode,
-              whatsappComposeUrl: r.devWhatsappComposeUrl,
-            });
-          } else {
-            this.devRegisterHints.set(null);
-          }
+
           this.step.set(2);
           this.submitting.set(false);
         },
@@ -99,89 +129,64 @@ export class RegisterComponent {
       });
   }
 
-  submitPaso2(ev: Event): void {
+  submitVerifyCode(ev: Event): void {
     ev.preventDefault();
-    if (this.codePhone.invalid) {
-      this.codePhone.markAsTouched();
-      this.error.set('Ingresá los 6 dígitos del código de WhatsApp.');
+    if (this.codeSignup.invalid) {
+      this.codeSignup.markAsTouched();
+      this.error.set(
+        this.verifyChannel() === 'email'
+          ? 'Enter the 6-digit code from your email.'
+          : 'Enter the 6-digit code sent to your phone.',
+      );
       return;
     }
     const rid = this.registrationId();
     if (!rid) {
-      this.error.set('Sesión de registro perdida. Empezá de nuevo.');
+      this.error.set('Sign-up session lost. Start again.');
       return;
     }
     this.error.set(null);
     this.submitting.set(true);
-    this.auth.registerVerifyPhone(rid, this.codePhone.value.trim()).subscribe({
-      next: (res) => this.onPhoneVerified(res),
-      error: (e) => this.onPhoneVerifyError(e),
-    });
-  }
-
-  submitPaso3(ev: Event): void {
-    ev.preventDefault();
-    if (this.codeEmail.invalid) {
-      this.codeEmail.markAsTouched();
-      this.error.set('Ingresá el código de 6 dígitos que enviamos al email.');
-      return;
-    }
-    this.error.set(null);
-    this.submitting.set(true);
-    this.auth.verifyEmail(this.codeEmail.value.trim()).subscribe({
+    this.auth.registerVerifyPhone(rid, this.codeSignup.value.trim()).subscribe({
       next: ({ token, user }) => {
         this.auth.applySession(token, user);
         this.submitting.set(false);
         void this.router.navigateByUrl('/');
       },
-      error: (e) => {
-        this.submitting.set(false);
-        const msg = e?.error?.error ?? 'Código incorrecto.';
-        this.error.set(msg);
-      },
+      error: (e) => this.onVerifyError(e),
     });
   }
 
-  resendEmail(): void {
-    this.resendEmailOk.set(null);
+  resendSignupEmail(): void {
+    const rid = this.registrationId();
+    if (!rid) {
+      this.error.set('Sign-up session lost. Start again.');
+      return;
+    }
+    this.resendSignupOk.set(null);
     this.error.set(null);
-    this.auth.resendEmail().subscribe({
+    this.auth.registerResendSignupEmail(rid).subscribe({
       next: () =>
-        this.resendEmailOk.set(
-          'Listo. Si Mailgun está activo, revisá el correo. Si no, el código nuevo sale en la consola del servidor.',
+        this.resendSignupOk.set(
+          'Code resent. If Mailgun is on, check your inbox; otherwise see the server log.',
         ),
       error: (e) => {
         const msg =
           e instanceof HttpErrorResponse && e.error && typeof e.error === 'object' && 'error' in e.error
             ? String((e.error as { error?: string }).error || '')
             : '';
-        this.error.set(msg || 'No se pudo reenviar el email. ¿Sesión válida y backend en marcha?');
+        this.error.set(msg || 'Could not resend. Is the backend running?');
       },
     });
   }
 
-  private onPhoneVerified(res: {
-    token: string;
-    user: AuthUser;
-    needsEmailVerification: boolean;
-  }): void {
-    this.auth.applySession(res.token, res.user);
-    this.submitting.set(false);
-    if (res.needsEmailVerification) {
-      this.needsEmail.set(true);
-      this.step.set(3);
-    } else {
-      void this.router.navigateByUrl('/');
-    }
-  }
-
-  private onPhoneVerifyError(e: unknown): void {
+  private onVerifyError(e: unknown): void {
     this.submitting.set(false);
     const msg =
       e instanceof HttpErrorResponse && e.error && typeof e.error === 'object' && 'error' in e.error
         ? String((e.error as { error?: string }).error || '')
         : '';
-    this.error.set(msg || 'Código incorrecto.');
+    this.error.set(msg || 'Incorrect code.');
   }
 
   volverPaso1(): void {
@@ -189,36 +194,36 @@ export class RegisterComponent {
     this.registrationId.set(null);
     this.devRegisterHints.set(null);
     this.error.set(null);
-    this.resendEmailOk.set(null);
+    this.resendSignupOk.set(null);
+    this.codeSignup.reset('');
   }
 
   private registrationStep1InvalidMessage(): string {
     const fc = this.form.controls;
     const parts: string[] = [];
     if (fc.username.invalid) {
-      parts.push('usuario (obligatorio, mínimo 2 caracteres)');
+      parts.push('username (required, at least 2 characters)');
     }
     if (fc.password.invalid) {
-      parts.push('contraseña (obligatorio, mínimo 6 caracteres)');
+      parts.push('password (required, at least 6 characters)');
     }
     if (fc.nombreCompleto.invalid) {
-      parts.push('nombre completo');
+      parts.push('full name');
     }
-    if (fc.whatsapp.invalid) {
-      parts.push('WhatsApp en formato internacional (+64… o +54 9…)');
+    if (fc.email.invalid) {
+      parts.push('valid email');
     }
     if (fc.aceptoTerminos.invalid) {
-      parts.push('aceptar términos y condiciones');
+      parts.push('accept the Terms & Conditions and Privacy Policy');
     }
     if (!parts.length) {
-      return 'Revisá el formulario.';
+      return 'Check the form.';
     }
-    return `Falta o hay error en: ${parts.join(', ')}.`;
+    return `Missing or invalid: ${parts.join(', ')}.`;
   }
 
   private registerStartErrorMessage(e: unknown): string {
-    const fallback =
-      'No se pudo iniciar el registro.';
+    const fallback = 'Could not start registration.';
     if (e instanceof HttpErrorResponse) {
       const bodyErr = e.error && typeof e.error === 'object' && e.error !== null && 'error' in e.error;
       if (bodyErr) {
@@ -228,12 +233,12 @@ export class RegisterComponent {
         }
       }
       if (e.status === 0) {
-        return 'Sin conexión con el servidor. ¿Está el backend en marcha (p. ej. puerto 5001) y el proxy de Angular apuntando al API?';
+        return 'Cannot reach server. Is the backend running (e.g. port 5001) and is the Angular dev proxy pointing at the API?';
       }
       if (e.status === 429) {
-        return 'Demasiados intentos. Probá dentro de una hora o reiniciá el servidor en desarrollo.';
+        return 'Too many attempts. Try again later or restart the server in development.';
       }
-      return `Fallo HTTP ${e.status}. Revisá la consola del backend.`;
+      return `HTTP error ${e.status}. Check the backend logs.`;
     }
     return fallback;
   }
