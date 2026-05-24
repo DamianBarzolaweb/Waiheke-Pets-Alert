@@ -1,16 +1,34 @@
-<div class="max-w-3xl mx-auto pb-12">
+<div class="max-w-3xl mx-auto pb-12 text-center sm:text-left">
   <header class="mb-10">
     <p class="font-headline text-xs font-bold uppercase tracking-[0.35em] text-secondary mb-3">Island resources</p>
     <h1 class="font-headline text-3xl sm:text-4xl font-extrabold text-primary tracking-tight mb-3">
       Help for Waiheke pets &amp; owners
     </h1>
-    <p class="text-on-surface-variant leading-relaxed">
+    <p class="text-on-surface-variant leading-relaxed mx-auto sm:mx-0 max-w-2xl">
       Quick links and practical tips for microchips, vets, travel off-island, and who to call when a pet needs help.
     </p>
   </header>
 
   <div class="space-y-6">
-    <section class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8">
+    <section
+      id="island-help-hub"
+      tabindex="-1"
+      class="scroll-mt-28 rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8 text-left outline-none"
+    >
+      <h2 class="font-headline text-sm font-extrabold uppercase tracking-widest text-primary mb-4">Island help hub</h2>
+      <p class="text-on-surface/85 text-sm leading-relaxed font-body mb-4">
+        One place on this site for preparedness: vets, ferry thinking, lost/sighted etiquette, and the
+        <a routerLink="/rescue-protocol" class="font-bold text-primary hover:underline">rescue protocol</a>
+        checklist if you encounter a stray animal.
+      </p>
+      <p class="text-on-surface-variant text-sm font-body">
+        Bookmark this URL or use the footer link — anchored sections scroll into view automatically.
+      </p>
+    </section>
+
+    <section
+      class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8 text-left"
+    >
       <h2 class="font-headline text-sm font-extrabold uppercase tracking-widest text-primary mb-4">Vets &amp; after-hours</h2>
       <p class="text-on-surface/85 text-sm leading-relaxed font-body mb-4">
         Save your clinic’s number before summer weekends and public holidays — ferry delays happen, and a printed list on the fridge helps housesitters.
@@ -21,21 +39,31 @@
       </ul>
     </section>
 
-    <section class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8">
-      <h2 class="font-headline text-sm font-extrabold uppercase tracking-widest text-primary mb-4">Ferry &amp; travel</h2>
+    <section
+      id="ferry-vet-checklist"
+      tabindex="-1"
+      class="scroll-mt-28 rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8 text-left outline-none"
+    >
+      <h2 class="font-headline text-sm font-extrabold uppercase tracking-widest text-primary mb-4">
+        Ferry &amp; vet checklist
+      </h2>
       <p class="text-on-surface/85 text-sm leading-relaxed font-body">
         If you’re reuniting a pet across the water, check carrier rules, shade, and water for queue waits — stressed animals overheat quickly in summer.
       </p>
+      <ul class="text-sm text-on-surface-variant space-y-2 font-body list-disc pl-5 mt-4">
+        <li>Carrier + leash + water bowl in the car.</li>
+        <li>Note last sailing times for your route before you publish a meet-up spot.</li>
+      </ul>
     </section>
 
-    <section class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8">
+    <section class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8 text-left">
       <h2 class="font-headline text-sm font-extrabold uppercase tracking-widest text-primary mb-4">Lost or sighted — what helps</h2>
       <p class="text-on-surface/85 text-sm leading-relaxed font-body">
         Clear photos, collar colour, last known bay or track name, and a calm “don’t chase” note make island-wide shares far more effective than a vague description.
       </p>
     </section>
 
-    <p class="text-center pt-4">
+    <p class="text-center sm:text-left pt-4">
       <a
         routerLink="/"
         class="inline-flex items-center gap-1 text-sm font-extrabold text-primary uppercase tracking-widest hover:text-primary-container transition"

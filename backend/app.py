@@ -8,7 +8,7 @@ from functools import wraps
 import jwt
 from sqlalchemy import func, inspect, text
 from dotenv import load_dotenv
-from flask import Flask, abort, jsonify, request, send_from_directory
+from flask import Flask, abort, jsonify, redirect, request, send_from_directory
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -61,6 +61,20 @@ limiter = Limiter(
 )
 
 db = SQLAlchemy(app)
+
+
+@app.before_request
+def _redirect_http_to_https():
+    """On Heroku, external HTTP hits still reach the app with X-Forwarded-Proto: http — redirect to HTTPS."""
+
+    if not os.getenv("DYNO"):
+        return None
+    if request.headers.get("X-Forwarded-Proto", "").lower() != "http":
+        return None
+    host = request.headers.get("Host", "")
+    if not host:
+        return None
+    return redirect(f"https://{host}{request.full_path}", code=301)
 
 
 def utcnow():

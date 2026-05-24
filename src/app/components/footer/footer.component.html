@@ -1,46 +1,61 @@
-<footer class="w-full py-16 px-8 bg-surface-container-low dark:bg-slate-900">
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 max-w-screen-xl mx-auto">
-    <div>
-      <div class="text-lg font-bold text-primary dark:text-cyan-400 font-headline mb-6">Waiheke Pets Alert</div>
-      <p class="font-body text-sm text-on-surface/80 dark:text-slate-300 leading-relaxed">
-        Dedicated to the safety of Waiheke's pets. Providing a direct link between lost pets and their families since
-        2024.
+<footer class="w-full py-14 sm:py-16 px-4 sm:px-8 bg-surface-container-low dark:bg-slate-900">
+  <div
+    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12 max-w-screen-xl mx-auto text-center md:text-left"
+  >
+    <div class="flex flex-col items-center md:items-start">
+      <div class="text-lg font-bold text-primary dark:text-cyan-400 font-headline mb-4 md:mb-6">Waiheke Pets Alert</div>
+      <p class="font-body text-sm text-on-surface/80 dark:text-slate-300 leading-relaxed max-w-sm md:max-w-none">
+        Dedicated to the safety of Waiheke’s pets. A direct community link between lost pets and families on the island.
       </p>
     </div>
     <div>
-      <h4 class="font-headline font-bold text-xs uppercase tracking-widest text-secondary mb-6">Resources</h4>
+      <h4 class="font-headline font-bold text-xs uppercase tracking-widest text-secondary mb-4 md:mb-6">Resources</h4>
       <ul class="space-y-4">
         <li>
-          <a class="font-body text-sm text-on-surface/60 dark:text-slate-500 hover:text-primary transition-colors" routerLink="/recursos">Island help hub</a>
+          <a
+            routerLink="/recursos"
+            fragment="island-help-hub"
+            class="font-body text-sm text-on-surface/60 dark:text-slate-500 hover:text-primary transition-colors inline-block"
+            >Island help hub</a>
         </li>
         <li>
-          <a class="font-body text-sm text-on-surface/60 dark:text-slate-500 hover:text-primary transition-colors" routerLink="/recursos">Ferry &amp; vet checklist</a>
+          <a
+            routerLink="/recursos"
+            fragment="ferry-vet-checklist"
+            class="font-body text-sm text-on-surface/60 dark:text-slate-500 hover:text-primary transition-colors inline-block"
+            >Ferry &amp; vet checklist</a>
         </li>
       </ul>
     </div>
     <div>
-      <h4 class="font-headline font-bold text-xs uppercase tracking-widest text-secondary mb-6">Support</h4>
+      <h4 class="font-headline font-bold text-xs uppercase tracking-widest text-secondary mb-4 md:mb-6">Support</h4>
       <ul class="space-y-4">
         <li>
-          <a class="font-body text-sm text-on-surface/60 dark:text-slate-500 hover:text-primary transition-colors" href="#">Rescue Protocols</a>
+          <a
+            routerLink="/rescue-protocol"
+            class="font-body text-sm text-on-surface/60 dark:text-slate-500 hover:text-primary transition-colors inline-block"
+            >Rescue protocols</a>
         </li>
         <li>
-          <a class="font-body text-sm text-on-surface/60 dark:text-slate-500 hover:text-primary transition-colors" href="#">Privacy Policy</a>
+          <a
+            routerLink="/privacy"
+            class="font-body text-sm text-on-surface/60 dark:text-slate-500 hover:text-primary transition-colors inline-block"
+            >Privacy policy</a>
         </li>
       </ul>
     </div>
-    <div>
-      <h4 class="font-headline font-bold text-xs uppercase tracking-widest text-secondary mb-6">Connect</h4>
-      <div class="flex gap-4">
+    <div class="flex flex-col items-center md:items-start">
+      <h4 class="font-headline font-bold text-xs uppercase tracking-widest text-secondary mb-4 md:mb-6">Connect</h4>
+      <div class="flex gap-4 justify-center md:justify-start">
         <button type="button" class="material-symbols-outlined text-on-surface/60" aria-label="Share">share</button>
         <button type="button" class="material-symbols-outlined text-on-surface/60" aria-label="Email">mail</button>
         <button type="button" class="material-symbols-outlined text-on-surface/60" aria-label="Forum">forum</button>
       </div>
     </div>
   </div>
-  <div class="max-w-screen-xl mx-auto mt-16 pt-8 border-t border-outline-variant/15 text-center">
+  <div class="max-w-screen-xl mx-auto mt-12 md:mt-16 pt-8 border-t border-outline-variant/15 text-center">
     <p class="font-body text-xs text-on-surface/60 dark:text-slate-500">
-      © 2024 Waiheke Pets Alert. Community Guarded.
+      © 2026 Waiheke Pets Alert. Community guarded.
     </p>
   </div>
 </footer>
