@@ -354,6 +354,50 @@ def migrate_demo_images_from_google() -> None:
         db.session.commit()
 
 
+def prune_configured_alert_posts() -> None:
+    """Remove pet_alerts rows (e.g. test posts). Idempotent.
+
+    ``PRUNE_ALERT_IDS``: comma-separated ids to delete (empty values are skipped).
+    Values ``none`` / ``false`` / ``0`` mean “no ids from this env var”.
+
+    ``PRUNE_ALERT_NAMES``: comma-separated pet ``name`` values (case-insensitive), e.g. ``Mango``
+
+    If both ids and names are empty after parsing, nothing is deleted.
+
+    To remove a stray post once: set ``PRUNE_ALERT_NAMES=Mango``, deploy, then ``heroku config:unset``.
+    """
+    raw_ids = os.getenv("PRUNE_ALERT_IDS")
+
+    ids: list[str] = []
+    if raw_ids is not None:
+        s = raw_ids.strip()
+        if s.lower() not in ("", "none", "false", "0"):
+            ids = [x.strip() for x in s.split(",") if x.strip()]
+
+    raw_names = os.getenv("PRUNE_ALERT_NAMES")
+    names: list[str] = []
+    if raw_names is not None:
+        ns = raw_names.strip()
+        if ns.lower() not in ("", "none", "false", "0"):
+            names = [x.strip().lower() for x in raw_names.split(",") if x.strip()]
+
+    if not ids and not names:
+        return
+
+    changed = False
+    for aid in ids:
+        row = PetAlert.query.get(aid)
+        if row:
+            db.session.delete(row)
+            changed = True
+    if names:
+        for row in PetAlert.query.filter(func.lower(PetAlert.name).in_(names)).all():
+            db.session.delete(row)
+            changed = True
+    if changed:
+        db.session.commit()
+
+
 def migrate_registro_pendiente_otp_whatsapp() -> None:
     try:
         insp = inspect(db.engine)
@@ -912,6 +956,7 @@ def _init():
         migrate_registro_pendiente_otp_whatsapp()  # also ensures otp_email column
         seed_if_empty()
         migrate_demo_images_from_google()
+        prune_configured_alert_posts()
         ensure_dev_user()
 
 

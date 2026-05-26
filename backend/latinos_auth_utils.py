@@ -163,15 +163,33 @@ def generar_codigo_seis() -> str:
 
 
 def enviar_email_verificacion_mailgun_pets(email: str, codigo: str, nombre: str) -> bool:
-    key = os.getenv("MAILGUN_API_KEY")
-    domain = os.getenv("MAILGUN_DOMAIN")
+    key = (os.getenv("MAILGUN_API_KEY") or "").strip()
+    domain = (os.getenv("MAILGUN_DOMAIN") or "").strip()
+    flask_env = (os.getenv("FLASK_ENV") or "").strip().lower()
+    dev_mode = flask_env == "development"
+
     if not key or not domain:
-        print(f"[DEV] Mailgun not configured. Email code for {email}: {codigo}")
-        return True
+        if dev_mode:
+            print(f"[DEV] Mailgun not configured. Email code for {email}: {codigo}")
+            return True
+        print("[Mailgun] Set MAILGUN_API_KEY and MAILGUN_DOMAIN to send verification emails.")
+        return False
+
+    region = (os.getenv("MAILGUN_REGION") or "").strip().lower()
+    base = (
+        "https://api.eu.mailgun.net/v3"
+        if region in ("eu", "europe")
+        else "https://api.mailgun.net/v3"
+    )
+    from_addr = (
+        os.getenv("MAILGUN_FROM")
+        or f"Waiheke Pets Alert <noreply@{domain}>"
+    ).strip()
+
     try:
-        url = f"https://api.mailgun.net/v3/{domain}/messages"
+        url = f"{base}/{domain}/messages"
         data = {
-            "from": f"Waiheke Pets Alert <noreply@{domain}>",
+            "from": from_addr,
             "to": email,
             "subject": "Verify your account — Waiheke Pets Alert",
             "text": f"Hi {nombre}, your code is: {codigo} (valid 10 minutes).",
@@ -182,6 +200,8 @@ def enviar_email_verificacion_mailgun_pets(email: str, codigo: str, nombre: str)
             """,
         }
         r = requests.post(url, auth=("api", key), data=data, timeout=20)
+        if r.status_code != 200:
+            print(f"Mailgun HTTP {r.status_code}: {r.text[:500]}")
         return r.status_code == 200
     except Exception as e:
         print(f"Mailgun error: {e}")

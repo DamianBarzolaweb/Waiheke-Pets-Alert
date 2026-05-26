@@ -24,7 +24,8 @@ heroku buildpacks:clear -a tu-app-wpa
 heroku buildpacks:add heroku/nodejs -a tu-app-wpa
 heroku buildpacks:add heroku/python -a tu-app-wpa
 heroku addons:create heroku-postgresql:essential-0 -a tu-app-wpa
-heroku config:set SECRET_KEY="$(openssl rand -hex 32)" JWT_SECRET_KEY="$(openssl rand -hex 32)" -a tu-app-wpa
+heroku config:set SECRET_KEY="$(openssl rand -hex 32)" JWT_SECRET_KEY="$(openssl rand -hex 32)" \
+  MAILGUN_API_KEY="key-..." MAILGUN_DOMAIN="mg.tudominio.nz" -a tu-app-wpa
 git push heroku main
 ```
 
@@ -53,10 +54,17 @@ y configurá **`CORS_ORIGINS`** en Heroku con el origen HTTPS exacto del front.
 | `SECRET_KEY` | Cadena aleatoria larga |
 | `JWT_SECRET_KEY` | Cadena aleatoria para JWT |
 | `REGISTRATION_EMAIL_ONLY` | `1` por defecto: registro verificado con OTP por email (Mailgun recomendado). `0`: flujo anterior con Verify SMS/WhatsApp. |
+| `MAILGUN_API_KEY`, `MAILGUN_DOMAIN` | Obligatorios en producción para OTP por correo. |
+| `MAILGUN_REGION` | Opcional: `eu` si el dominio Mailgun está en la región EU. |
+| `MAILGUN_FROM` | Opcional: cabecera `From` completa (default `noreply@MAILGUN_DOMAIN`). |
+| `PRUNE_ALERT_IDS` | Opcional: ids exactos de `pet_alerts` a borrar en cada arranque (coma). |
+| `PRUNE_ALERT_NAMES` | Opcional: nombres de mascota (`name`, sin distinguir mayúsculas), p. ej. `Mango` para borrar un post de prueba. **Quitala después del deploy** (`heroku config:unset`), si no cualquier futura alerta llamada igual se borrará al reiniciar. |
 
 ### Registro de usuarios en producción
 
-- **Por defecto (`REGISTRATION_EMAIL_ONLY=1` o sin definir):** email obligatorio; se envía un código de 6 dígitos vía Mailgun (`MAILGUN_API_KEY`, `MAILGUN_DOMAIN`). Sin Mailgun el código aparece en el log del servidor (solo desarrollo / diagnóstico). Teléfono opcional (no OTP).
+- **Por defecto (`REGISTRATION_EMAIL_ONLY=1` o sin definir):** email obligatorio; se envía un código de 6 dígitos vía Mailgun (`MAILGUN_API_KEY`, `MAILGUN_DOMAIN`). **En producción (Flask distinto de `development`)** Mailgun es obligatorio: sin esas variables el registro responde error y no se crea el pendiente. En local con `FLASK_ENV=development`, si no hay Mailgun el código se imprime en la consola del servidor. Teléfono opcional (no OTP).
+  - Dominio EU: `MAILGUN_REGION=eu` (usa `api.eu.mailgun.net`).
+  - Remitente: opcional `MAILGUN_FROM` (p. ej. `Waiheke Pets Alert <noreply@mg.tudominio.nz>`).
   - Renovar código antes de completar la cuenta: `POST /api/auth/register/resend-email-code` con `registrationId`.
 - **Opcional — mismo flujo Latinos/Twilio:** `REGISTRATION_EMAIL_ONLY=0` + **Twilio Verify** (OTP SMS/WhatsApp): `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`; **`TWILIO_VERIFY_CHANNEL`** `sms` o `whatsapp`.
 - **Solo demos:** `SKIP_WHATSAPP_OTP` + `ALLOW_SKIP_PHONE_OTP_IN_PRODUCTION` (solo aplica cuando el registro es por canal “phone”; con email-only casi siempre irrelevante).
