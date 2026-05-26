@@ -32,6 +32,7 @@ git push heroku main
 - En el slug, `npm install` corre primero y luego el script **`heroku-postbuild`** (`ng build`); los estáticos quedan en `dist/waiheke-pets-alert/browser/` y Flask los sirve en `/` junto con `/api/...`.
 - **Misma URL Heroku**: no necesitás definir `window.__WPA_API_BASE__` (Angular llama rutas relativas `/api`).
 - **`CORS_ORIGINS`**: opcional si los usuarios usan sólo ese dominio. Dejalo vacío o agrega orígenes extra si exponés otro dominio / app móvil.
+- **Previews WhatsApp / redes:** para `/`, si el `User-Agent` es un crawler (WhatsApp, Facebook, etc.), Flask responde HTML con Open Graph: `og:image` es la foto de la **alerta más reciente** (mismo criterio que el listado por fecha). Sin alertas, se usa una imagen por defecto. Los navegadores siguen recibiendo el SPA Angular. WhatsApp cachea previews; si no actualiza, probá un link con query distinto (p. ej. `?v=2`) o esperá unas horas.
 
 Detalle Postgres (variables, Twilio): las tablas siguen arriba; `DATABASE_URL` la gestiona Heroku.
 

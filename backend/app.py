@@ -2,6 +2,7 @@ import os
 import random
 import re
 import uuid
+from html import escape
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 
@@ -914,6 +915,119 @@ def me(payload):
     return jsonify(user_to_dict(u))
 
 
+# WhatsApp / Facebook / etc. fetch link previews without running JavaScript — use Open Graph HTML.
+_DEFAULT_OG_IMAGE = (
+    "https://images.unsplash.com/photo-1552053831-71594a27632d"
+    "?w=1200&h=630&q=82&auto=format&fit=crop"
+)
+
+_SOCIAL_PREVIEW_UA_MARKERS = (
+    "whatsapp",
+    "facebookexternalhit",
+    "facebot",
+    "twitterbot",
+    "linkedinbot",
+    "slackbot",
+    "telegrambot",
+    "pinterest",
+    "discordbot",
+)
+
+
+def _canonical_public_base_url() -> str:
+    raw_proto = (
+        request.headers.get("X-Forwarded-Proto")
+        or request.scheme
+        or "https"
+    )
+    proto = raw_proto.split(",")[0].strip().lower()
+    if proto not in ("http", "https"):
+        proto = "https"
+    host = (request.headers.get("Host") or request.host or "").strip()
+    return f"{proto}://{host}".rstrip("/")
+
+
+def _absolute_og_image_url(image_url: str | None, base: str) -> str:
+    u = (image_url or "").strip()
+    if not u:
+        return _DEFAULT_OG_IMAGE
+    if u.startswith("//"):
+        return f"https:{u}"
+    if u.startswith(("http://", "https://")):
+        return u
+    if u.startswith("/"):
+        return f"{base}{u}"
+    return f"{base}/{u}"
+
+
+def _social_preview_bot_request() -> bool:
+    ua = (request.headers.get("User-Agent") or "").lower()
+    return any(m in ua for m in _SOCIAL_PREVIEW_UA_MARKERS)
+
+
+def _social_share_preview_html_home() -> str:
+    """Minimal HTML shell with og:image from the newest portal alert photo."""
+    base = _canonical_public_base_url()
+    canonical = f"{base}/"
+    try:
+        row = PetAlert.query.order_by(PetAlert.creado.desc()).first()
+    except Exception:
+        row = None
+    if row:
+        title_raw = f"{row.name.strip()} · {row.status} — Waiheke Pets Alert"
+        desc_raw = (
+            (row.description or "").replace("\r", " ").replace("\n", " ").strip()
+            or row.location.strip()
+            or "Lost and found pet alert on Waiheke Island."
+        )
+        if len(desc_raw) > 260:
+            desc_raw = desc_raw[:257].rsplit(maxsplit=1)[0] + "…"
+        img_url = (
+            _absolute_og_image_url(row.image_url, base)
+            if (row.image_url or "").strip()
+            else _DEFAULT_OG_IMAGE
+        )
+        alt_raw = row.image_alt or f"Photo · {row.name}"
+    else:
+        title_raw = "Waiheke Pets Alert"
+        desc_raw = (
+            "Lost and found pets on Waiheke Island — post an alert or help reunite pets with families."
+        )
+        img_url = _DEFAULT_OG_IMAGE
+        alt_raw = "Waiheke Pets Alert"
+    ti = escape(title_raw)
+    ti_a = escape(title_raw, quote=True)
+    de = escape(desc_raw)
+    de_a = escape(desc_raw, quote=True)
+    im = escape(img_url, quote=True)
+    al_a = escape(alt_raw, quote=True)
+    cn = escape(canonical, quote=True)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{ti}</title>
+  <meta name="description" content="{de_a}">
+  <link rel="canonical" href="{cn}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{ti_a}">
+  <meta property="og:description" content="{de_a}">
+  <meta property="og:url" content="{cn}">
+  <meta property="og:image" content="{im}">
+  <meta property="og:image:alt" content="{al_a}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{ti_a}">
+  <meta name="twitter:description" content="{de_a}">
+  <meta name="twitter:image" content="{im}">
+</head>
+<body>
+  <p><a href="{cn}">Open Waiheke Pets Alert</a></p>
+</body>
+</html>
+"""
+
+
 def _angular_browser_dir() -> str:
     backend_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.abspath(os.path.join(backend_dir, "..", "dist", "waiheke-pets-alert", "browser"))
@@ -946,6 +1060,9 @@ def _serve_angular_asset(path_within: str):
 @app.route("/<path:path_within>", methods=["GET"])
 def spa(path_within):
     """Serve Angular on the same host; /api/* has dedicated handlers declared above."""
+    if request.method == "GET" and path_within == "" and _social_preview_bot_request():
+        html = _social_share_preview_html_home()
+        return html, 200, {"Content-Type": "text/html; charset=utf-8"}
     return _serve_angular_asset(path_within)
 
 
