@@ -14,6 +14,7 @@ export class AuthService {
   private readonly _user = signal<AuthUser | null>(null);
   readonly user = this._user.asReadonly();
   readonly isLoggedIn = computed(() => this._user() !== null);
+  readonly isAdmin = computed(() => this._user()?.esAdmin === true);
 
   constructor() {
     this.hydrateFromStorage();

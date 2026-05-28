@@ -301,6 +301,89 @@ def require_auth(f):
     return decorated
 
 
+def require_admin(f):
+    """Bearer JWT + usuario con ``es_admin``."""
+
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get("Authorization", "")
+        if token.startswith("Bearer "):
+            token = token[7:]
+        if not token:
+            return jsonify({"error": "Authentication required"}), 401
+        jwt_payload = verify_jwt_token(token)
+        if not jwt_payload:
+            return jsonify({"error": "Invalid or expired token"}), 401
+        u = Usuario.query.get(jwt_payload.get("user_id"))
+        if not u or not u.es_admin:
+            return jsonify({"error": "Admin access required"}), 403
+        return f(jwt_payload, *args, **kwargs)
+
+    return decorated
+
+
+def ensure_superadmin_users() -> None:
+    """Promote configured usernames to full admin (default: damo)."""
+    raw = os.getenv("WPA_SUPERADMIN_USERNAMES", "damo")
+    for part in raw.split(","):
+        un = part.strip().lower()
+        if not un:
+            continue
+        u = Usuario.query.filter(func.lower(Usuario.username) == un).first()
+        if u and not u.es_admin:
+            u.es_admin = True
+            db.session.commit()
+
+
+def _apply_alert_patch(row: PetAlert, data: dict) -> str | None:
+    """Update alert from JSON body; return error message or None."""
+    if "name" in data:
+        row.name = (data.get("name") or "").strip()
+    if "status" in data:
+        st = (data.get("status") or "").strip()
+        if st not in ("Lost", "Sighted"):
+            return "status must be Lost or Sighted"
+        row.status = st
+    if "species" in data:
+        sp = (data.get("species") or "dog").strip().lower()
+        if sp not in ("dog", "cat"):
+            return "species must be dog or cat"
+        row.species = sp
+    if "breed" in data:
+        row.breed = (data.get("breed") or "").strip() or "Unknown"
+    if "breedVariant" in data:
+        bv = (data.get("breedVariant") or "tertiary").strip()
+        if bv in ("tertiary", "secondary"):
+            row.breed_variant = bv
+    if "location" in data:
+        row.location = (data.get("location") or "").strip()[:200]
+    if "description" in data:
+        row.description = (data.get("description") or "").strip()[:2000]
+    if "fullDescription" in data:
+        row.full_description = (data.get("fullDescription") or "").strip() or None
+    if "imageUrl" in data:
+        row.image_url = (data.get("imageUrl") or "").strip()
+    if "imageAlt" in data:
+        row.image_alt = (data.get("imageAlt") or "").strip()
+    if "lastSeenWindow" in data:
+        row.last_seen_window = (data.get("lastSeenWindow") or "").strip() or None
+    if "detailLocation" in data:
+        row.detail_location = (data.get("detailLocation") or "").strip() or None
+    if "lat" in data or "lng" in data:
+        try:
+            lat_f = float(data.get("lat", row.lat))
+            lng_f = float(data.get("lng", row.lng))
+        except (TypeError, ValueError):
+            return "valid lat and lng are required"
+        row.lat = max(-37.05, min(-36.68, lat_f))
+        row.lng = max(174.85, min(175.28, lng_f))
+    if row.status == "Lost" and not (row.name or "").strip():
+        return "name is required for Lost alerts"
+    if not (row.description or "").strip():
+        return "description is required"
+    return None
+
+
 def seed_if_empty() -> None:
     from seed_data import INITIAL_ALERTS
 
@@ -560,6 +643,38 @@ def create_alert(payload):
     return jsonify(alert_to_dict(pa)), 201
 
 
+@app.route("/api/admin/alerts", methods=["GET"])
+@require_admin
+def admin_list_alerts(_payload):
+    rows = PetAlert.query.order_by(PetAlert.creado.desc()).all()
+    return jsonify([alert_to_dict(r) for r in rows])
+
+
+@app.route("/api/admin/alerts/<string:alert_id>", methods=["PATCH"])
+@require_admin
+def admin_update_alert(_payload, alert_id: str):
+    row = PetAlert.query.get(alert_id)
+    if not row:
+        return jsonify({"error": "not_found"}), 404
+    data = request.get_json(silent=True) or {}
+    err = _apply_alert_patch(row, data)
+    if err:
+        return jsonify({"error": err}), 400
+    db.session.commit()
+    return jsonify(alert_to_dict(row))
+
+
+@app.route("/api/admin/alerts/<string:alert_id>", methods=["DELETE"])
+@require_admin
+def admin_delete_alert(_payload, alert_id: str):
+    row = PetAlert.query.get(alert_id)
+    if not row:
+        return jsonify({"error": "not_found"}), 404
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({"ok": True, "id": alert_id})
+
+
 @app.route("/api/auth/register/start", methods=["POST"])
 @limiter.limit("15 per hour")
 def register_start():
@@ -805,7 +920,9 @@ def register_verify_phone():
         db.session.delete(pr)
         db.session.add(u)
         db.session.commit()
-        token = create_jwt_token(u.id, u.username, u.es_admin)
+        ensure_superadmin_users()
+        u = Usuario.query.get(u.id)
+        token = create_jwt_token(u.id, u.username, bool(u.es_admin))
         return jsonify(
             {
                 "token": token,
@@ -913,7 +1030,9 @@ def login():
     u = Usuario.query.filter_by(username=username).first()
     if not u or not u.check_password(password):
         return jsonify({"error": "Invalid credentials"}), 401
-    token = create_jwt_token(u.id, u.username, u.es_admin)
+    ensure_superadmin_users()
+    u = Usuario.query.get(u.id)
+    token = create_jwt_token(u.id, u.username, bool(u.es_admin))
     return jsonify({"token": token, "user": user_to_dict(u)})
 
 
@@ -1086,6 +1205,7 @@ def _init():
         migrate_demo_images_from_google()
         prune_configured_alert_posts()
         ensure_dev_user()
+        ensure_superadmin_users()
 
 
 _init()

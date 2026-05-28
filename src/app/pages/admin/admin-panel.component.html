@@ -1,0 +1,141 @@
+<div class="max-w-6xl mx-auto px-4 pb-16 pt-8">
+  <header class="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+    <div>
+      <p class="text-xs uppercase tracking-[0.2em] text-secondary font-bold mb-2">Admin</p>
+      <h1 class="font-headline text-3xl font-extrabold text-primary tracking-tight">Manage alerts</h1>
+      <p class="text-sm text-on-surface-variant mt-2">Edit or delete pet reports. Changes appear on the public feed immediately.</p>
+    </div>
+    <button
+      type="button"
+      (click)="reload()"
+      class="rounded-xl ring-1 ring-outline-variant/30 px-4 py-2 text-xs font-extrabold uppercase tracking-widest text-primary hover:bg-primary/5"
+    >
+      Refresh
+    </button>
+  </header>
+
+  @if (error(); as err) {
+    <div class="mb-4 rounded-2xl bg-error/10 text-error px-4 py-3 text-sm ring-1 ring-error/20" role="alert">{{ err }}</div>
+  }
+  @if (success(); as ok) {
+    <div class="mb-4 rounded-2xl bg-primary/10 text-primary px-4 py-3 text-sm ring-1 ring-primary/20">{{ ok }}</div>
+  }
+
+  @if (loading()) {
+    <p class="text-sm text-on-surface-variant">Loading alerts…</p>
+  } @else {
+    <div class="grid lg:grid-cols-2 gap-8">
+      <section class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] overflow-hidden">
+        <h2 class="px-4 py-3 text-xs font-extrabold uppercase tracking-widest text-secondary border-b border-outline-variant/15">
+          All posts ({{ rows().length }})
+        </h2>
+        <ul class="divide-y divide-outline-variant/10 max-h-[32rem] overflow-y-auto">
+          @for (a of rows(); track a.id) {
+            <li>
+              <button
+                type="button"
+                (click)="selectRow(a)"
+                class="w-full text-left px-4 py-3 hover:bg-surface-container-high/80 transition"
+                [class.ring-2]="selectedId() === a.id"
+                [class.ring-primary]="selectedId() === a.id"
+              >
+                <span class="font-bold text-on-surface block">{{ headline(a) }}</span>
+                <span class="text-xs text-on-surface-variant">{{ a.status }} · {{ a.location }}</span>
+                <span class="text-[10px] text-on-surface-variant/80 font-mono block mt-1">{{ a.id }}</span>
+              </button>
+            </li>
+          } @empty {
+            <li class="px-4 py-8 text-sm text-on-surface-variant">No alerts in the database.</li>
+          }
+        </ul>
+      </section>
+
+      <section class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] p-6">
+        @if (selectedId(); as sid) {
+          <h2 class="text-xs font-extrabold uppercase tracking-widest text-secondary mb-4">Edit · {{ sid }}</h2>
+          <form class="space-y-4" [formGroup]="editForm" (submit)="saveEdit($event)">
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-1">Status</label>
+                <select formControlName="status" class="w-full rounded-xl bg-surface-container-high px-3 py-2 text-sm">
+                  <option value="Lost">Lost</option>
+                  <option value="Sighted">Sighted</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-1">Species</label>
+                <select formControlName="species" class="w-full rounded-xl bg-surface-container-high px-3 py-2 text-sm">
+                  <option value="dog">Dog</option>
+                  <option value="cat">Cat</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-1">Pet name</label>
+              <input formControlName="name" class="w-full rounded-xl bg-surface-container-high px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-1">Breed</label>
+              <input formControlName="breed" class="w-full rounded-xl bg-surface-container-high px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-1">Location</label>
+              <input formControlName="location" class="w-full rounded-xl bg-surface-container-high px-3 py-2 text-sm" />
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-1">Lat</label>
+                <input type="number" step="any" formControlName="lat" class="w-full rounded-xl bg-surface-container-high px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-1">Lng</label>
+                <input type="number" step="any" formControlName="lng" class="w-full rounded-xl bg-surface-container-high px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-1">Short description</label>
+              <textarea formControlName="description" rows="3" class="w-full rounded-xl bg-surface-container-high px-3 py-2 text-sm"></textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-1">Full description</label>
+              <textarea formControlName="fullDescription" rows="3" class="w-full rounded-xl bg-surface-container-high px-3 py-2 text-sm"></textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-1">Image URL</label>
+              <input formControlName="imageUrl" class="w-full rounded-xl bg-surface-container-high px-3 py-2 text-sm font-mono text-xs" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-1">Last seen</label>
+              <input formControlName="lastSeenWindow" class="w-full rounded-xl bg-surface-container-high px-3 py-2 text-sm" />
+            </div>
+            <div class="flex flex-wrap gap-3 pt-2">
+              <button
+                type="submit"
+                [disabled]="saving()"
+                class="rounded-2xl bg-primary text-on-primary px-5 py-2.5 text-xs font-extrabold uppercase tracking-widest disabled:opacity-50"
+              >
+                {{ saving() ? 'Saving…' : 'Save changes' }}
+              </button>
+              <button
+                type="button"
+                (click)="deleteSelected()"
+                [disabled]="deleting()"
+                class="rounded-2xl bg-error/10 text-error px-5 py-2.5 text-xs font-extrabold uppercase tracking-widest ring-1 ring-error/30 disabled:opacity-50"
+              >
+                {{ deleting() ? 'Deleting…' : 'Delete post' }}
+              </button>
+              <a
+                [routerLink]="['/alertas', sid]"
+                class="rounded-2xl px-5 py-2.5 text-xs font-extrabold uppercase tracking-widest text-primary ring-1 ring-primary/30"
+              >
+                View public
+              </a>
+            </div>
+          </form>
+        } @else {
+          <p class="text-sm text-on-surface-variant">Select an alert from the list to edit or delete.</p>
+        }
+      </section>
+    </div>
+  }
+</div>
