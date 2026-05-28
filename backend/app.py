@@ -1183,19 +1183,24 @@ def me(payload):
 # WhatsApp / Facebook / etc. fetch link previews without running JavaScript — use Open Graph HTML.
 _DEFAULT_OG_IMAGE = (
     "https://images.unsplash.com/photo-1552053831-71594a27632d"
-    "?w=1200&h=630&q=82&auto=format&fit=crop"
+    "?w=1200&h=630&fit=crop"
 )
 
 _SOCIAL_PREVIEW_UA_MARKERS = (
     "whatsapp",
     "facebookexternalhit",
     "facebot",
+    "facebookcatalog",
+    "meta-externalagent",
+    "meta-externalfetcher",
     "twitterbot",
     "linkedinbot",
     "slackbot",
     "telegrambot",
     "pinterest",
     "discordbot",
+    "applebot",
+    "bingbot",
 )
 
 
@@ -1290,12 +1295,13 @@ def _social_share_preview_html(*, canonical_url: str, title_raw: str, desc_raw: 
     """Minimal HTML with Open Graph / Twitter tags for link previews (WhatsApp, Facebook, etc.)."""
     ti = escape(title_raw)
     ti_a = escape(title_raw, quote=True)
+    de = escape(desc_raw)
     de_a = escape(desc_raw, quote=True)
     im = escape(img_url, quote=True)
     al_a = escape(alt_raw, quote=True)
     cn = escape(canonical_url, quote=True)
     return f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1310,6 +1316,9 @@ def _social_share_preview_html(*, canonical_url: str, title_raw: str, desc_raw: 
   <meta property="og:url" content="{cn}">
   <meta property="og:image" content="{im}">
   <meta property="og:image:secure_url" content="{im}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:alt" content="{al_a}">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{ti_a}">
@@ -1317,6 +1326,8 @@ def _social_share_preview_html(*, canonical_url: str, title_raw: str, desc_raw: 
   <meta name="twitter:image" content="{im}">
 </head>
 <body>
+  <h1>{ti}</h1>
+  <p>{de}</p>
   <p><a href="{cn}">Open Waiheke Pets Alert</a></p>
 </body>
 </html>
