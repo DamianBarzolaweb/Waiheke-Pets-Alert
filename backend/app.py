@@ -634,7 +634,15 @@ def register_start():
         if not enviar_email_verificacion_mailgun_pets(email_raw_in, otp_plain, nombre):
             db.session.delete(pr)
             db.session.commit()
-            return jsonify({"error": "Could not send the verification email. Try again."}), 502
+            mg_domain = (os.getenv("MAILGUN_DOMAIN") or "").lower()
+            err = "Could not send the verification email. Try again."
+            if "sandbox" in mg_domain:
+                err = (
+                    "Could not send the verification email. Mailgun sandbox only delivers to "
+                    "authorized addresses — open the Mailgun invite in your inbox and click "
+                    "Verify, or add a verified sending domain for production."
+                )
+            return jsonify({"error": err}), 502
         body: dict = {
             "registrationId": rid,
             "message": "Verification code sent to your email.",

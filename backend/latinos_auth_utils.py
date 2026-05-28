@@ -162,6 +162,15 @@ def generar_codigo_seis() -> str:
     return "".join(str(random.randint(0, 9)) for _ in range(6))
 
 
+def mailgun_from_address(domain: str) -> str:
+    """Default From header; Mailgun sandbox expects postmaster@ on the sandbox domain."""
+    custom = (os.getenv("MAILGUN_FROM") or "").strip()
+    if custom:
+        return custom
+    local = "postmaster" if "sandbox" in domain.lower() else "noreply"
+    return f"Waiheke Pets Alert <{local}@{domain}>"
+
+
 def enviar_email_verificacion_mailgun_pets(email: str, codigo: str, nombre: str) -> bool:
     key = (os.getenv("MAILGUN_API_KEY") or "").strip()
     domain = (os.getenv("MAILGUN_DOMAIN") or "").strip()
@@ -181,10 +190,7 @@ def enviar_email_verificacion_mailgun_pets(email: str, codigo: str, nombre: str)
         if region in ("eu", "europe")
         else "https://api.mailgun.net/v3"
     )
-    from_addr = (
-        os.getenv("MAILGUN_FROM")
-        or f"Waiheke Pets Alert <noreply@{domain}>"
-    ).strip()
+    from_addr = mailgun_from_address(domain)
 
     try:
         url = f"{base}/{domain}/messages"
