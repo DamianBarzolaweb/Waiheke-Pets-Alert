@@ -1130,43 +1130,60 @@ def _social_preview_bot_request() -> bool:
     return any(m in ua for m in _SOCIAL_PREVIEW_UA_MARKERS)
 
 
-def _social_share_preview_html_home() -> str:
-    """Minimal HTML shell with og:image from the newest portal alert photo."""
-    base = _canonical_public_base_url()
-    canonical = f"{base}/"
+def _truncate_og_description(text: str, limit: int = 260) -> str:
+    t = (text or "").replace("\r", " ").replace("\n", " ").strip()
+    if len(t) <= limit:
+        return t
+    return t[: limit - 1].rsplit(maxsplit=1)[0] + "…"
+
+
+def _og_fields_for_alert(row: PetAlert, base: str) -> tuple[str, str, str, str]:
+    title_raw = f"{row.name.strip()} · {row.status} — Waiheke Pets Alert"
+    desc_raw = _truncate_og_description(
+        (row.description or "").strip()
+        or (row.location or "").strip()
+        or "Lost and found pet alert on Waiheke Island."
+    )
+    img_url = (
+        _absolute_og_image_url(row.image_url, base)
+        if (row.image_url or "").strip()
+        else _DEFAULT_OG_IMAGE
+    )
+    alt_raw = (row.image_alt or "").strip() or f"Photo · {row.name}"
+    return title_raw, desc_raw, img_url, alt_raw
+
+
+def _og_fields_for_home(base: str) -> tuple[str, str, str, str]:
     try:
         row = PetAlert.query.order_by(PetAlert.creado.desc()).first()
     except Exception:
         row = None
     if row:
-        title_raw = f"{row.name.strip()} · {row.status} — Waiheke Pets Alert"
-        desc_raw = (
-            (row.description or "").replace("\r", " ").replace("\n", " ").strip()
-            or row.location.strip()
-            or "Lost and found pet alert on Waiheke Island."
-        )
-        if len(desc_raw) > 260:
-            desc_raw = desc_raw[:257].rsplit(maxsplit=1)[0] + "…"
-        img_url = (
-            _absolute_og_image_url(row.image_url, base)
-            if (row.image_url or "").strip()
-            else _DEFAULT_OG_IMAGE
-        )
-        alt_raw = row.image_alt or f"Photo · {row.name}"
-    else:
-        title_raw = "Waiheke Pets Alert"
-        desc_raw = (
-            "Lost and found pets on Waiheke Island — post an alert or help reunite pets with families."
-        )
-        img_url = _DEFAULT_OG_IMAGE
-        alt_raw = "Waiheke Pets Alert"
+        return _og_fields_for_alert(row, base)
+    return (
+        "Waiheke Pets Alert",
+        "Lost and found pets on Waiheke Island — post an alert or help reunite pets with families.",
+        _DEFAULT_OG_IMAGE,
+        "Waiheke Pets Alert",
+    )
+
+
+def _alert_id_from_spa_path(path_within: str) -> str | None:
+    parts = [p for p in (path_within or "").strip("/").split("/") if p]
+    if len(parts) == 2 and parts[0].lower() == "alertas":
+        aid = parts[1].strip()
+        return aid or None
+    return None
+
+
+def _social_share_preview_html(*, canonical_url: str, title_raw: str, desc_raw: str, img_url: str, alt_raw: str) -> str:
+    """Minimal HTML with Open Graph / Twitter tags for link previews (WhatsApp, Facebook, etc.)."""
     ti = escape(title_raw)
     ti_a = escape(title_raw, quote=True)
-    de = escape(desc_raw)
     de_a = escape(desc_raw, quote=True)
     im = escape(img_url, quote=True)
     al_a = escape(alt_raw, quote=True)
-    cn = escape(canonical, quote=True)
+    cn = escape(canonical_url, quote=True)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1175,11 +1192,14 @@ def _social_share_preview_html_home() -> str:
   <title>{ti}</title>
   <meta name="description" content="{de_a}">
   <link rel="canonical" href="{cn}">
+  <meta property="og:site_name" content="Waiheke Pets Alert">
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_NZ">
   <meta property="og:title" content="{ti_a}">
   <meta property="og:description" content="{de_a}">
   <meta property="og:url" content="{cn}">
   <meta property="og:image" content="{im}">
+  <meta property="og:image:secure_url" content="{im}">
   <meta property="og:image:alt" content="{al_a}">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{ti_a}">
@@ -1191,6 +1211,30 @@ def _social_share_preview_html_home() -> str:
 </body>
 </html>
 """
+
+
+def _social_share_preview_for_path(path_within: str) -> str | None:
+    """Build OG HTML for crawlers, or None if this path should use the normal SPA."""
+    base = _canonical_public_base_url()
+    aid = _alert_id_from_spa_path(path_within)
+    if aid:
+        row = PetAlert.query.get(aid)
+        if not row:
+            return None
+        title_raw, desc_raw, img_url, alt_raw = _og_fields_for_alert(row, base)
+        canonical = f"{base}/alertas/{aid}"
+    elif path_within == "":
+        title_raw, desc_raw, img_url, alt_raw = _og_fields_for_home(base)
+        canonical = f"{base}/"
+    else:
+        return None
+    return _social_share_preview_html(
+        canonical_url=canonical,
+        title_raw=title_raw,
+        desc_raw=desc_raw,
+        img_url=img_url,
+        alt_raw=alt_raw,
+    )
 
 
 def _angular_browser_dir() -> str:
@@ -1225,9 +1269,10 @@ def _serve_angular_asset(path_within: str):
 @app.route("/<path:path_within>", methods=["GET"])
 def spa(path_within):
     """Serve Angular on the same host; /api/* has dedicated handlers declared above."""
-    if request.method == "GET" and path_within == "" and _social_preview_bot_request():
-        html = _social_share_preview_html_home()
-        return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+    if request.method == "GET" and _social_preview_bot_request():
+        html = _social_share_preview_for_path(path_within)
+        if html:
+            return html, 200, {"Content-Type": "text/html; charset=utf-8"}
     return _serve_angular_asset(path_within)
 
 
