@@ -1160,7 +1160,11 @@ def _truncate_og_description(text: str, limit: int = 260) -> str:
 
 
 def _og_fields_for_alert(row: PetAlert, base: str) -> tuple[str, str, str, str]:
-    title_raw = f"{row.name.strip()} · {row.status} — Waiheke Pets Alert"
+    name = (row.name or "").strip()
+    if name:
+        title_raw = f"{name} · {row.status} — Waiheke Pets Alert"
+    else:
+        title_raw = f"{row.status} pet — Waiheke Pets Alert"
     desc_raw = _truncate_og_description(
         (row.description or "").strip()
         or (row.location or "").strip()
@@ -1176,18 +1180,18 @@ def _og_fields_for_alert(row: PetAlert, base: str) -> tuple[str, str, str, str]:
 
 
 def _og_fields_for_home(base: str) -> tuple[str, str, str, str]:
-    try:
-        row = PetAlert.query.order_by(PetAlert.creado.desc()).first()
-    except Exception:
-        row = None
-    if row:
-        return _og_fields_for_alert(row, base)
-    return (
-        "Waiheke Pets Alert",
-        "Lost and found pets on Waiheke Island — post an alert or help reunite pets with families.",
-        _DEFAULT_OG_IMAGE,
-        "Waiheke Pets Alert",
-    )
+    """Portal home link — fixed branding, not the latest gallery alert."""
+    title_raw = (
+        os.getenv("WPA_OG_HOME_TITLE") or "Waiheke Pets Alert"
+    ).strip()
+    desc_raw = (
+        os.getenv("WPA_OG_HOME_DESCRIPTION")
+        or "Helping families reunite with lost pets on Waiheke Island."
+    ).strip()
+    img_raw = (os.getenv("WPA_OG_HOME_IMAGE_URL") or _DEFAULT_OG_IMAGE).strip()
+    img_url = _absolute_og_image_url(img_raw, base)
+    alt_raw = "Waiheke Pets Alert — lost and found pets on Waiheke Island"
+    return title_raw, desc_raw, img_url, alt_raw
 
 
 def _alert_id_from_spa_path(path_within: str) -> str | None:
