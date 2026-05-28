@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { DecimalPipe, NgClass } from '@angular/common';
 import { Component, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -102,8 +103,13 @@ export class ReportComponent {
           nameCtrl.updateValueAndValidity({ emitEvent: false });
           void this.router.navigate(['/alertas', created.id]);
         },
-        error: () => {
+        error: (err) => {
           this.submitting.set(false);
+          if (err instanceof HttpErrorResponse && err.status === 401) {
+            this.submitError.set('You must be logged in to report a pet.');
+            void this.router.navigate(['/login'], { queryParams: { returnUrl: '/reportar' } });
+            return;
+          }
           this.submitError.set(
             'Could not submit the report. Try again or check that the API is running.',
           );

@@ -3,6 +3,11 @@
   <p class="text-on-surface-variant text-sm mb-8">
     Enter the username and password you chose when you signed up.
   </p>
+  @if (mustReportAfterLogin) {
+    <p class="text-sm text-secondary font-medium mb-6 rounded-2xl bg-secondary/10 px-4 py-3 ring-1 ring-secondary/20">
+      You need an account to report a lost or sighted pet. Log in to continue.
+    </p>
+  }
 
   @if (error(); as err) {
     <div class="mb-6 rounded-2xl bg-error/10 text-error px-4 py-3 text-sm font-medium ring-1 ring-error/20" role="alert">

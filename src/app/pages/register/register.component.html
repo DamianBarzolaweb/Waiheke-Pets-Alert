@@ -57,12 +57,24 @@
         </div>
       }
       <label class="flex items-start gap-3 cursor-pointer">
-        <input type="checkbox" formControlName="aceptoTerminos" class="mt-1 rounded" />
+        <input
+          type="checkbox"
+          formControlName="aceptoTerminos"
+          class="mt-1 rounded"
+          required
+          aria-required="true"
+        />
         <span class="text-sm text-on-surface-variant">
+          <span class="text-error font-bold" aria-hidden="true">*</span>
           I have read and accept the
-          <a routerLink="/terms" class="font-bold text-primary hover:underline mx-0.5">Terms &amp; Conditions</a>
+          <a routerLink="/terms" target="_blank" rel="noopener" class="font-bold text-primary hover:underline mx-0.5"
+            >Terms &amp; Conditions</a
+          >
           and
-          <a routerLink="/privacy" class="font-bold text-primary hover:underline mx-0.5">Privacy Policy</a>.
+          <a routerLink="/privacy" target="_blank" rel="noopener" class="font-bold text-primary hover:underline mx-0.5"
+            >Privacy Policy</a
+          >
+          (required to sign up).
         </span>
       </label>
       @if (form.controls.aceptoTerminos.touched && form.controls.aceptoTerminos.invalid) {
@@ -70,7 +82,7 @@
       }
       <button
         type="submit"
-        [disabled]="submitting()"
+        [disabled]="submitting() || form.invalid"
         class="w-full rounded-2xl bg-primary text-on-primary py-3.5 text-sm font-extrabold uppercase tracking-widest disabled:opacity-50"
       >
         {{ submitting() ? 'Sending…' : 'Next' }}

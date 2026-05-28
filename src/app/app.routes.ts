@@ -10,6 +10,7 @@ import { RegisterComponent } from './pages/register/register.component';
 import { TermsPageComponent } from './pages/legal/terms-page.component';
 import { PrivacyPageComponent } from './pages/legal/privacy-page.component';
 import { RescueProtocolComponent } from './pages/rescue-protocol/rescue-protocol.component';
+import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   /* Empty path '' must use pathMatch: 'full', otherwise every URL matches as prefix and wipes /login, /registro, etc. */
@@ -24,6 +25,6 @@ export const routes: Routes = [
   { path: 'how-it-works', component: HowItWorksComponent, title: 'How it works' },
   { path: 'recursos', component: ResourcesComponent, title: 'Resources' },
   { path: 'rescue-protocol', component: RescueProtocolComponent, title: 'Rescue protocol' },
-  { path: 'reportar', component: ReportComponent, title: 'Report' },
+  { path: 'reportar', component: ReportComponent, title: 'Report', canActivate: [authGuard] },
   { path: '**', redirectTo: '' },
 ];

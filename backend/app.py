@@ -506,7 +506,8 @@ def get_alert(alert_id: str):
 
 @app.route("/api/alerts", methods=["POST"])
 @limiter.limit("20 per hour")
-def create_alert():
+@require_auth
+def create_alert(payload):
     data = request.get_json(silent=True) or {}
     kind = (data.get("kind") or data.get("status") or "lost").lower()
     status = "Lost" if kind in ("lost", "perdido") else "Sighted"
@@ -570,8 +571,10 @@ def register_start():
     )
 
     data = request.get_json(silent=True) or {}
-    if not data.get("aceptoTerminos"):
-        return jsonify({"error": "You must accept the terms and conditions."}), 400
+    if data.get("aceptoTerminos") not in (True, 1, "1", "true", "yes"):
+        return jsonify(
+            {"error": "You must accept the Terms & Conditions and Privacy Policy."}
+        ), 400
     username = (data.get("username") or "").strip()
     password = (data.get("password") or "").strip()
     nombre = (data.get("nombreCompleto") or "").strip()
