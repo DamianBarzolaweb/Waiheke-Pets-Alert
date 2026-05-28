@@ -50,19 +50,20 @@ export class PetAlertsService {
     return this._alerts().find((a) => a.id === id);
   }
 
-  /** Create alert from report form (Latinos-style POST). */
-  submitReport(payload: ReportPayload): Observable<PetAlert> {
+  /** Create alert from report form (multipart + photo). */
+  submitReport(payload: ReportPayload, photo: File): Observable<PetAlert> {
+    const fd = new FormData();
+    fd.append('photo', photo, photo.name);
+    fd.append('kind', payload.kind);
+    fd.append('petName', payload.petName);
+    fd.append('breed', payload.breed ?? '');
+    fd.append('description', payload.description);
+    fd.append('seenDate', payload.seenDate ?? '');
+    fd.append('seenTime', payload.seenTime ?? '');
+    fd.append('lat', String(payload.lat));
+    fd.append('lng', String(payload.lng));
     return this.http
-      .post<PetAlert>(apiUrl('/api/alerts'), {
-        petName: payload.petName,
-        breed: payload.breed ?? '',
-        kind: payload.kind,
-        description: payload.description,
-        seenDate: payload.seenDate ?? '',
-        seenTime: payload.seenTime ?? '',
-        lat: payload.lat,
-        lng: payload.lng,
-      })
+      .post<PetAlert>(apiUrl('/api/alerts'), fd)
       .pipe(tap((created) => this._alerts.update((list) => [created, ...list])));
   }
 }

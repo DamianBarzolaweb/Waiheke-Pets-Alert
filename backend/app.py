@@ -587,11 +587,32 @@ def get_alert(alert_id: str):
     return jsonify(alert_to_dict(r))
 
 
+def _parse_create_alert_request():
+    """JSON body or multipart form (report form with photo)."""
+    ct = (request.content_type or "").lower()
+    if "multipart/form-data" in ct:
+        return dict(request.form), request.files.get("photo")
+    return request.get_json(silent=True) or {}, None
+
+
+@app.route("/uploads/<path:filename>", methods=["GET"])
+def serve_uploaded_photo(filename: str):
+    from photo_storage import local_upload_path
+
+    path = local_upload_path(filename)
+    if not path:
+        abort(404)
+    directory = os.path.dirname(path)
+    return send_from_directory(directory, os.path.basename(path), max_age=86400)
+
+
 @app.route("/api/alerts", methods=["POST"])
 @limiter.limit("20 per hour")
 @require_auth
 def create_alert(payload):
-    data = request.get_json(silent=True) or {}
+    from photo_storage import store_alert_photo
+
+    data, photo_file = _parse_create_alert_request()
     kind = (data.get("kind") or data.get("status") or "lost").lower()
     status = "Lost" if kind in ("lost", "perdido") else "Sighted"
     pet_name = (data.get("petName") or data.get("name") or "").strip()
@@ -614,6 +635,23 @@ def create_alert(payload):
     location_txt = (
         data.get("location") or "").strip() or f"Approx. pin {lat_f:.4f}°, {lng_f:.4f}°"
 
+    alt_hint = f"Photo for {pet_name}" if pet_name else "Photo of sighted pet"
+    default_image = (
+        "https://images.unsplash.com/photo-1548199973-03cce0bbc87a"
+        "?w=800&q=80&auto=format&fit=crop"
+    )
+    image_url = default_image
+    image_alt = alt_hint
+    if photo_file and (photo_file.filename or "").strip():
+        base = _canonical_public_base_url()
+        image_url, image_alt, upload_err = store_alert_photo(
+            photo_file, public_base_url=base, alt_hint=alt_hint
+        )
+        if upload_err:
+            return jsonify({"error": upload_err}), 400
+    elif "multipart/form-data" in (request.content_type or "").lower():
+        return jsonify({"error": "Photo file is required."}), 400
+
     aid = _slug_id(pet_name)
     while PetAlert.query.get(aid):
         aid = _slug_id(pet_name)
@@ -629,11 +667,8 @@ def create_alert(payload):
         lat=lat_f,
         lng=lng_f,
         description=description[:2000],
-        image_url=(
-            "https://images.unsplash.com/photo-1548199973-03cce0bbc87a"
-            "?w=800&q=80&auto=format&fit=crop"
-        ),
-        image_alt=f"Photo for {pet_name}" if pet_name else "Photo of sighted pet",
+        image_url=image_url,
+        image_alt=image_alt,
         last_seen_window=last_seen or None,
         full_description=description,
         creado=now,

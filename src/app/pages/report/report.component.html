@@ -152,12 +152,51 @@
     <section class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8 space-y-6">
       <h2 class="font-headline text-sm font-extrabold uppercase tracking-widest text-primary">Final details</h2>
 
-      <div
-        class="rounded-2xl border-2 border-dashed border-outline-variant/60 bg-surface-container-high/40 px-6 py-10 text-center"
-      >
-        <span class="material-symbols-outlined text-4xl text-primary/70 mb-2">photo_camera</span>
-        <p class="font-headline text-sm font-extrabold text-primary">Upload photos</p>
-        <p class="text-xs text-on-surface-variant mt-1">Drag &amp; drop — or click to browse (hook up to storage next).</p>
+      <div>
+        <p class="block text-xs font-bold uppercase tracking-widest text-outline mb-2">Photo</p>
+        <input
+          #photoInput
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          class="sr-only"
+          (change)="onPhotoSelected($event)"
+        />
+        @if (photoPreviewUrl(); as preview) {
+          <div class="relative rounded-2xl overflow-hidden ring-1 ring-on-surface/[0.06] mb-3">
+            <img [src]="preview" alt="Selected photo preview" class="w-full max-h-64 object-cover" />
+            <button
+              type="button"
+              (click)="clearPhoto()"
+              class="absolute top-3 right-3 rounded-full bg-surface/90 p-2 text-on-surface shadow-soft hover:bg-surface-container-highest transition"
+              aria-label="Remove photo"
+            >
+              <span class="material-symbols-outlined text-lg">close</span>
+            </button>
+          </div>
+        }
+        <div
+          role="button"
+          tabindex="0"
+          (click)="openPhotoPicker()"
+          (keydown.enter)="openPhotoPicker()"
+          (keydown.space)="$event.preventDefault(); openPhotoPicker()"
+          (drop)="onPhotoDrop($event)"
+          (dragover)="onPhotoDragOver($event)"
+          (dragleave)="onPhotoDragLeave()"
+          class="rounded-2xl border-2 border-dashed px-6 py-10 text-center cursor-pointer transition"
+          [ngClass]="{
+            'border-primary bg-primary/5': photoDragOver(),
+            'border-outline-variant/60 bg-surface-container-high/40': !photoDragOver(),
+          }"
+        >
+          <span class="material-symbols-outlined text-4xl text-primary/70 mb-2">photo_camera</span>
+          <p class="font-headline text-sm font-extrabold text-primary">
+            {{ selectedPhoto() ? 'Change photo' : 'Upload a photo' }}
+          </p>
+          <p class="text-xs text-on-surface-variant mt-1">
+            Drag &amp; drop or click — JPEG, PNG, WebP, or GIF (max 8 MB). Required.
+          </p>
+        </div>
       </div>
 
       <div>
