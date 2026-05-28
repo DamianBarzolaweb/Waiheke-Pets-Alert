@@ -33,6 +33,7 @@ git push heroku main
 - **Misma URL Heroku**: no necesitás definir `window.__WPA_API_BASE__` (Angular llama rutas relativas `/api`).
 - **`CORS_ORIGINS`**: opcional si los usuarios usan sólo ese dominio. Dejalo vacío o agrega orígenes extra si exponés otro dominio / app móvil.
 - **Dominio:** en Heroku el custom domain suele ser **`www.waihekepetsalert.co.nz`** (CNAME). El apex `waihekepetsalert.co.nz` sin registro DNS no abre al hacer clic en enlaces sin `www`. Configurá `WPA_PUBLIC_BASE_URL=https://www.waihekepetsalert.co.nz` en producción.
+- **Comentarios en alertas:** `POST /api/alerts/{id}/comments` (auth) con `{ "body": "…", "parentId": null | "id-del-post" }`. Respuestas solo a posts de primer nivel. Listado en `GET /api/alerts/{id}` → `sightings`.
 - **Previews WhatsApp / Facebook:** crawlers reciben HTML Open Graph. **`/`** → texto fijo del portal (“Helping families reunite…”) e imagen de marca (`WPA_OG_HOME_*` opcional); **`/alertas/{id}`** → foto y datos de esa alerta. WhatsApp/Facebook **cachean**; [Sharing Debugger](https://developers.facebook.com/tools/debug/) o `?v=2` para refrescar.
 
 Detalle Postgres (variables, Twilio): las tablas siguen arriba; `DATABASE_URL` la gestiona Heroku.

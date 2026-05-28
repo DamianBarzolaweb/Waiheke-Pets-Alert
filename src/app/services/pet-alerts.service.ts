@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { apiUrl } from '../lib/api-url';
-import type { PetAlert } from '../models/pet-alert.model';
+import type { CommunitySighting, PetAlert } from '../models/pet-alert.model';
 
 export interface ReportPayload {
   /** Only used for "lost" reports; empty for "sighted". */
@@ -48,6 +48,29 @@ export class PetAlertsService {
 
   getById(id: string): PetAlert | undefined {
     return this._alerts().find((a) => a.id === id);
+  }
+
+  fetchById(id: string): Observable<PetAlert> {
+    return this.http.get<PetAlert>(apiUrl(`/api/alerts/${encodeURIComponent(id)}`));
+  }
+
+  upsertInCache(alert: PetAlert): void {
+    this._alerts.update((list) => {
+      const i = list.findIndex((a) => a.id === alert.id);
+      if (i >= 0) {
+        const next = [...list];
+        next[i] = alert;
+        return next;
+      }
+      return [alert, ...list];
+    });
+  }
+
+  postComment(alertId: string, body: string, parentId?: string): Observable<CommunitySighting> {
+    return this.http.post<CommunitySighting>(apiUrl(`/api/alerts/${encodeURIComponent(alertId)}/comments`), {
+      body,
+      parentId: parentId ?? null,
+    });
   }
 
   /** Create alert from report form (multipart + photo). */

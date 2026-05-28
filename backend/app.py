@@ -237,6 +237,21 @@ class Sighting(db.Model):
     time_ago = db.Column(db.String(50), nullable=False)
     body = db.Column(db.Text, nullable=False)
     thumb_url = db.Column(db.String(500), nullable=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=True)
+    parent_public_id = db.Column(db.String(32), nullable=True)
+    creado = db.Column(db.DateTime, default=lambda: datetime.utcnow())
+
+
+def sighting_to_dict(s: Sighting) -> dict:
+    when = humanize_reported_ago(s.creado) if s.creado else (s.time_ago or "Recently")
+    return {
+        "id": s.public_id,
+        "author": s.author,
+        "timeAgo": when,
+        "body": s.body,
+        "thumbUrl": s.thumb_url,
+        "parentId": s.parent_public_id or None,
+    }
 
 
 def alert_to_dict(alert: PetAlert) -> dict:
@@ -259,14 +274,11 @@ def alert_to_dict(alert: PetAlert) -> dict:
         "detailLocation": alert.detail_location,
         "fullDescription": alert.full_description,
         "sightings": [
-            {
-                "id": s.public_id,
-                "author": s.author,
-                "timeAgo": s.time_ago,
-                "body": s.body,
-                "thumbUrl": s.thumb_url,
-            }
-            for s in (alert.sightings or [])
+            sighting_to_dict(s)
+            for s in sorted(
+                alert.sightings or [],
+                key=lambda x: (x.creado or datetime.min.replace(tzinfo=timezone.utc), x.id),
+            )
         ],
     }
 
@@ -517,6 +529,34 @@ def migrate_registro_pendiente_otp_whatsapp() -> None:
         db.session.rollback()
 
 
+def migrate_sighting_comment_columns() -> None:
+    """Community posts/replies on alert detail."""
+    try:
+        insp = inspect(db.engine)
+        if "sightings" not in insp.get_table_names():
+            return
+        cols = {c["name"] for c in insp.get_columns("sightings")}
+        alters = []
+        if "usuario_id" not in cols:
+            alters.append("ALTER TABLE sightings ADD COLUMN usuario_id INTEGER")
+        if "parent_public_id" not in cols:
+            alters.append("ALTER TABLE sightings ADD COLUMN parent_public_id VARCHAR(32)")
+        if "creado" not in cols:
+            alters.append("ALTER TABLE sightings ADD COLUMN creado DATETIME")
+        for sql in alters:
+            db.session.execute(text(sql))
+        if alters:
+            db.session.commit()
+        if "creado" in cols or alters:
+            db.session.execute(
+                text("UPDATE sightings SET creado = CURRENT_TIMESTAMP WHERE creado IS NULL")
+            )
+            db.session.commit()
+    except Exception as e:
+        print(f"migrate_sighting_comment_columns: {e}")
+        db.session.rollback()
+
+
 def migrate_usuario_auth_columns() -> None:
     """SQLite: añade columnas nuevas en bases ya creadas."""
     try:
@@ -601,6 +641,48 @@ def get_alert(alert_id: str):
     if not r:
         return jsonify({"error": "not_found"}), 404
     return jsonify(alert_to_dict(r))
+
+
+@app.route("/api/alerts/<string:alert_id>/comments", methods=["POST"])
+@limiter.limit("60 per hour")
+@require_auth
+def create_alert_comment(alert_id: str, payload):
+    alert = PetAlert.query.get(alert_id)
+    if not alert:
+        return jsonify({"error": "not_found"}), 404
+    data = request.get_json(silent=True) or {}
+    body = (data.get("body") or "").strip()
+    if not body:
+        return jsonify({"error": "Comment text is required."}), 400
+    if len(body) > 2000:
+        return jsonify({"error": "Comment must be under 2000 characters."}), 400
+    parent_id = (data.get("parentId") or data.get("parent_id") or "").strip() or None
+    if parent_id:
+        parent = Sighting.query.filter_by(
+            public_id=parent_id, pet_alert_id=alert_id
+        ).first()
+        if not parent:
+            return jsonify({"error": "Parent comment not found on this alert."}), 400
+        if parent.parent_public_id:
+            return jsonify({"error": "Replies can only be added to top-level posts."}), 400
+    u = Usuario.query.get(payload["user_id"])
+    if not u:
+        return jsonify({"error": "User not found"}), 404
+    author = (u.nombre_completo or "").strip() or u.username
+    now = datetime.utcnow()
+    row = Sighting(
+        public_id=uuid.uuid4().hex[:16],
+        pet_alert_id=alert_id,
+        author=author[:100],
+        time_ago=humanize_reported_ago(now),
+        body=body,
+        usuario_id=u.id,
+        parent_public_id=parent_id,
+        creado=now,
+    )
+    db.session.add(row)
+    db.session.commit()
+    return jsonify(sighting_to_dict(row)), 201
 
 
 def _parse_create_alert_request():
@@ -1306,6 +1388,7 @@ def _init():
     with app.app_context():
         db.create_all()
         migrate_usuario_auth_columns()
+        migrate_sighting_comment_columns()
         migrate_registro_pendiente_otp_whatsapp()  # also ensures otp_email column
         seed_if_empty()
         migrate_demo_images_from_google()

@@ -8,6 +8,8 @@ export interface CommunitySighting {
   timeAgo: string;
   body: string;
   thumbUrl?: string;
+  /** Set when this is a reply to another community post. */
+  parentId?: string | null;
 }
 
 export interface PetAlert {

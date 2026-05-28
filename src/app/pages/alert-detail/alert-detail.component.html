@@ -61,6 +61,133 @@
             {{ a.fullDescription ?? a.description }}
           </p>
         </section>
+
+        <section
+          id="community-comment-form"
+          class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8"
+        >
+          <h2 class="font-headline text-xs font-extrabold uppercase tracking-[0.25em] text-secondary mb-2">
+            Community updates
+          </h2>
+          <p class="text-xs text-on-surface-variant mb-5">
+            Share a sighting, tip, or reply — help neighbours follow this alert.
+          </p>
+
+          @if (postError(); as err) {
+            <div
+              class="mb-4 rounded-xl bg-error/10 text-error px-4 py-3 text-sm font-medium ring-1 ring-error/20"
+              role="alert"
+            >
+              {{ err }}
+            </div>
+          }
+
+          @if (replyToId(); as parentId) {
+            <div
+              class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15"
+            >
+              <span class="text-xs font-semibold text-primary">Replying to a post</span>
+              <button
+                type="button"
+                (click)="cancelReply()"
+                class="text-xs font-extrabold uppercase tracking-widest text-on-surface/60 hover:text-primary"
+              >
+                Cancel reply
+              </button>
+            </div>
+          }
+
+          @if (isLoggedIn()) {
+            <form [formGroup]="commentForm" (submit)="submitComment($event)" class="space-y-4">
+              <label class="sr-only" for="commentBody">Your update</label>
+              <textarea
+                id="commentBody"
+                formControlName="body"
+                rows="4"
+                class="w-full rounded-xl bg-surface-container-high border-none px-4 py-3.5 text-sm font-medium text-on-surface placeholder:text-outline/70 focus:ring-2 focus:ring-primary/25"
+                [placeholder]="
+                  replyToId()
+                    ? 'Write your reply…'
+                    : 'e.g. Saw near the wharf around 3pm, heading toward Oneroa…'
+                "
+              ></textarea>
+              @if (commentForm.controls.body.touched && commentForm.controls.body.invalid) {
+                <p class="text-xs font-semibold text-error">Please write something (max 2000 characters).</p>
+              }
+              <button
+                type="submit"
+                [disabled]="posting()"
+                class="inline-flex items-center gap-2 rounded-full bg-primary text-on-primary px-5 py-2.5 text-xs font-extrabold uppercase tracking-widest shadow-soft hover:brightness-[1.05] transition disabled:opacity-50"
+              >
+                <span class="material-symbols-outlined text-base">send</span>
+                {{ replyToId() ? 'Post reply' : 'Post update' }}
+              </button>
+            </form>
+          } @else {
+            <p class="text-sm text-on-surface-variant">
+              <a routerLink="/login" [queryParams]="{ returnUrl: '/alertas/' + a.id }" class="font-bold text-primary underline"
+                >Log in</a
+              >
+              to post or reply on this alert.
+            </p>
+          }
+
+          @if (topLevelPosts().length) {
+            <ul class="mt-8 pt-8 border-t border-outline-variant/25 space-y-6">
+              @for (post of topLevelPosts(); track post.id) {
+                <li>
+                  <div class="flex gap-4">
+                    <div
+                      class="h-11 w-11 rounded-2xl bg-surface-container-high ring-1 ring-on-surface/[0.06] flex items-center justify-center shrink-0"
+                    >
+                      <span class="material-symbols-outlined text-on-surface/55">person</span>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                        <span class="font-headline text-sm font-extrabold text-primary">{{ post.author }}</span>
+                        <span class="text-[11px] font-bold text-outline uppercase tracking-wide">{{ post.timeAgo }}</span>
+                      </div>
+                      <p class="text-sm text-on-surface-variant leading-relaxed mt-1 whitespace-pre-wrap">{{ post.body }}</p>
+                      @if (isLoggedIn()) {
+                        <button
+                          type="button"
+                          (click)="startReply(post.id)"
+                          class="mt-2 text-[11px] font-extrabold uppercase tracking-widest text-primary/80 hover:text-primary"
+                        >
+                          Reply
+                        </button>
+                      }
+                    </div>
+                  </div>
+                  @if (repliesFor(post.id).length) {
+                    <ul class="mt-4 ml-6 sm:ml-14 pl-4 border-l-2 border-primary/15 space-y-4">
+                      @for (reply of repliesFor(post.id); track reply.id) {
+                        <li class="flex gap-3">
+                          <div
+                            class="h-9 w-9 rounded-xl bg-surface-container-high ring-1 ring-on-surface/[0.06] flex items-center justify-center shrink-0"
+                          >
+                            <span class="material-symbols-outlined text-on-surface/50 text-lg">forum</span>
+                          </div>
+                          <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                              <span class="font-headline text-sm font-bold text-primary">{{ reply.author }}</span>
+                              <span class="text-[11px] font-bold text-outline uppercase tracking-wide">{{ reply.timeAgo }}</span>
+                            </div>
+                            <p class="text-sm text-on-surface-variant leading-relaxed mt-1 whitespace-pre-wrap">{{ reply.body }}</p>
+                          </div>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="mt-6 pt-6 border-t border-outline-variant/25 text-sm text-on-surface-variant">
+              No community posts yet — be the first to add an update.
+            </p>
+          }
+        </section>
       </div>
 
       <div class="lg:col-span-5 space-y-8">
@@ -73,32 +200,6 @@
             <app-leaflet-map [markers]="mapMarkers()" [zoom]="15" />
           </div>
         </section>
-
-        @if (a.sightings?.length) {
-          <section class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8">
-            <h2 class="font-headline text-xs font-extrabold uppercase tracking-[0.25em] text-secondary mb-5">
-              Community sightings
-            </h2>
-            <ul class="space-y-5">
-              @for (s of a.sightings!; track s.id) {
-                <li class="flex gap-4">
-                  <div
-                    class="h-11 w-11 rounded-2xl bg-surface-container-high ring-1 ring-on-surface/[0.06] flex items-center justify-center shrink-0"
-                  >
-                    <span class="material-symbols-outlined text-on-surface/55">person</span>
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span class="font-headline text-sm font-extrabold text-primary">{{ s.author }}</span>
-                      <span class="text-[11px] font-bold text-outline uppercase tracking-wide">{{ s.timeAgo }}</span>
-                    </div>
-                    <p class="text-sm text-on-surface-variant leading-relaxed mt-1">{{ s.body }}</p>
-                  </div>
-                </li>
-              }
-            </ul>
-          </section>
-        }
       </div>
     </div>
 
@@ -119,14 +220,14 @@
       </a>
     </div>
   </article>
-} @else if (loadingAlerts()) {
+} @else if (detailLoading()) {
   <div class="rounded-2xl bg-surface-container-low p-10 text-center ring-1 ring-on-surface/[0.06] shadow-soft">
     <p class="text-on-surface-variant text-sm">Loading alert…</p>
   </div>
 } @else {
   <div class="rounded-2xl bg-surface-container-low p-10 text-center ring-1 ring-on-surface/[0.06] shadow-soft">
     <h1 class="font-headline text-2xl font-extrabold text-primary mb-2">Alert not found</h1>
-    <p class="text-on-surface-variant text-sm mb-6">This link may be outdated.</p>
+    <p class="text-on-surface-variant text-sm mb-6">{{ detailError() ?? 'This link may be outdated.' }}</p>
     <a
       routerLink="/"
       class="inline-flex items-center justify-center rounded-full bg-primary text-on-primary px-6 py-3 text-xs font-extrabold uppercase tracking-widest"
