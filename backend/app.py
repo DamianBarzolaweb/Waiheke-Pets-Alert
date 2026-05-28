@@ -535,19 +535,21 @@ def migrate_sighting_comment_columns() -> None:
         insp = inspect(db.engine)
         if "sightings" not in insp.get_table_names():
             return
+        is_pg = db.engine.dialect.name == "postgresql"
+        ts_col = "TIMESTAMP" if is_pg else "DATETIME"
         cols = {c["name"] for c in insp.get_columns("sightings")}
-        alters = []
+        pending = []
         if "usuario_id" not in cols:
-            alters.append("ALTER TABLE sightings ADD COLUMN usuario_id INTEGER")
+            pending.append("ALTER TABLE sightings ADD COLUMN usuario_id INTEGER")
         if "parent_public_id" not in cols:
-            alters.append("ALTER TABLE sightings ADD COLUMN parent_public_id VARCHAR(32)")
+            pending.append("ALTER TABLE sightings ADD COLUMN parent_public_id VARCHAR(32)")
         if "creado" not in cols:
-            alters.append("ALTER TABLE sightings ADD COLUMN creado DATETIME")
-        for sql in alters:
+            pending.append(f"ALTER TABLE sightings ADD COLUMN creado {ts_col}")
+        for sql in pending:
             db.session.execute(text(sql))
-        if alters:
             db.session.commit()
-        if "creado" in cols or alters:
+            cols = {c["name"] for c in insp.get_columns("sightings")}
+        if "creado" in cols:
             db.session.execute(
                 text("UPDATE sightings SET creado = CURRENT_TIMESTAMP WHERE creado IS NULL")
             )
