@@ -78,6 +78,22 @@ def _redirect_http_to_https():
     return redirect(f"https://{host}{request.full_path}", code=301)
 
 
+@app.before_request
+def _redirect_apex_host_to_www():
+    """Custom domain is on www.*; apex without DNS breaks shared links — send to www when it hits the app."""
+    if not os.getenv("DYNO"):
+        return None
+    host = (request.headers.get("Host") or "").split(":")[0].strip().lower()
+    if host != "waihekepetsalert.co.nz":
+        return None
+    proto = (
+        request.headers.get("X-Forwarded-Proto") or request.scheme or "https"
+    ).split(",")[0].strip().lower()
+    if proto not in ("http", "https"):
+        proto = "https"
+    return redirect(f"{proto}://www.waihekepetsalert.co.nz{request.full_path}", code=301)
+
+
 def utcnow():
     return datetime.now(timezone.utc)
 
@@ -1100,6 +1116,10 @@ _SOCIAL_PREVIEW_UA_MARKERS = (
 
 
 def _canonical_public_base_url() -> str:
+    """Public site URL for OG tags, photo URLs, etc. Prefer WPA_PUBLIC_BASE_URL on Heroku."""
+    fixed = (os.getenv("WPA_PUBLIC_BASE_URL") or os.getenv("PUBLIC_APP_URL") or "").strip().rstrip("/")
+    if fixed:
+        return fixed
     raw_proto = (
         request.headers.get("X-Forwarded-Proto")
         or request.scheme
@@ -1108,7 +1128,9 @@ def _canonical_public_base_url() -> str:
     proto = raw_proto.split(",")[0].strip().lower()
     if proto not in ("http", "https"):
         proto = "https"
-    host = (request.headers.get("Host") or request.host or "").strip()
+    host = (request.headers.get("Host") or request.host or "").split(":")[0].strip().lower()
+    if host == "waihekepetsalert.co.nz":
+        host = "www.waihekepetsalert.co.nz"
     return f"{proto}://{host}".rstrip("/")
 
 
