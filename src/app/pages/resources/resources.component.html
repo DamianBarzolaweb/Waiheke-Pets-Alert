@@ -5,7 +5,8 @@
       Help for Waiheke pets &amp; owners
     </h1>
     <p class="text-on-surface-variant leading-relaxed mx-auto sm:mx-0 max-w-2xl">
-      Quick links and practical tips for microchips, vets, travel off-island, and who to call when a pet needs help.
+      Quick links and practical tips for microchips, vets, travel off-island, bird rescue, and who to call when a pet
+      needs help.
     </p>
   </header>
 
@@ -17,7 +18,7 @@
     >
       <h2 class="font-headline text-sm font-extrabold uppercase tracking-widest text-primary mb-4">Island help hub</h2>
       <p class="text-on-surface/85 text-sm leading-relaxed font-body mb-4">
-        One place on this site for preparedness: vets, ferry thinking, lost/sighted etiquette, and the
+        One place on this site for preparedness: vets, bird rescue, ferry thinking, lost/sighted etiquette, and the
         <a routerLink="/rescue-protocol" class="font-bold text-primary hover:underline">rescue protocol</a>
         checklist if you encounter a stray animal.
       </p>
@@ -27,15 +28,140 @@
     </section>
 
     <section
-      class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8 text-left"
+      id="island-vets"
+      tabindex="-1"
+      class="scroll-mt-28 rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8 text-left outline-none"
     >
-      <h2 class="font-headline text-sm font-extrabold uppercase tracking-widest text-primary mb-4">Vets &amp; after-hours</h2>
-      <p class="text-on-surface/85 text-sm leading-relaxed font-body mb-4">
-        Save your clinic’s number before summer weekends and public holidays — ferry delays happen, and a printed list on the fridge helps housesitters.
+      <h2 class="font-headline text-sm font-extrabold uppercase tracking-widest text-primary mb-4">Vets on Waiheke</h2>
+      <p class="text-on-surface/85 text-sm leading-relaxed font-body mb-5">
+        Save these numbers before summer weekends and public holidays — ferry delays happen, and a printed list on the
+        fridge helps housesitters.
       </p>
-      <ul class="text-sm text-on-surface-variant space-y-2 font-body list-disc pl-5">
+      <ul class="space-y-5">
+        @for (vet of veterinarians; track vet.name) {
+          <li class="rounded-xl bg-surface-container-high/70 p-4 sm:p-5 ring-1 ring-on-surface/[0.04]">
+            <h3 class="font-headline text-base font-extrabold text-primary">{{ vet.name }}</h3>
+            @if (vet.role) {
+              <p class="text-xs font-bold uppercase tracking-wide text-secondary mt-1">{{ vet.role }}</p>
+            }
+            <dl class="mt-3 space-y-2 text-sm text-on-surface-variant font-body">
+              @if (vet.address) {
+                <div class="flex gap-2">
+                  <span class="material-symbols-outlined text-base text-outline shrink-0" aria-hidden="true"
+                    >location_on</span
+                  >
+                  <span>{{ vet.address }}</span>
+                </div>
+              }
+              @if (vet.phone; as phone) {
+                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <span class="material-symbols-outlined text-base text-outline shrink-0" aria-hidden="true"
+                    >call</span
+                  >
+                  @if (telHref(phone); as href) {
+                    <a [href]="href" class="font-bold text-primary hover:underline">{{ phone }}</a>
+                  } @else {
+                    <span class="font-bold text-on-surface">{{ phone }}</span>
+                  }
+                  @if (vet.phoneNote) {
+                    <span class="text-xs text-outline w-full sm:w-auto sm:ml-6">{{ vet.phoneNote }}</span>
+                  }
+                </div>
+              }
+              @if (vet.email; as email) {
+                <div class="flex gap-2">
+                  <span class="material-symbols-outlined text-base text-outline shrink-0" aria-hidden="true"
+                    >mail</span
+                  >
+                  @if (mailHref(email); as href) {
+                    <a [href]="href" class="font-semibold text-primary hover:underline break-all">{{ email }}</a>
+                  }
+                </div>
+              }
+              @if (vet.hours) {
+                <div class="flex gap-2">
+                  <span class="material-symbols-outlined text-base text-outline shrink-0" aria-hidden="true"
+                    >schedule</span
+                  >
+                  <span>{{ vet.hours }}</span>
+                </div>
+              }
+              @if (vet.website; as url) {
+                <div class="flex gap-2">
+                  <span class="material-symbols-outlined text-base text-outline shrink-0" aria-hidden="true"
+                    >language</span
+                  >
+                  <a [href]="url" target="_blank" rel="noopener noreferrer" class="font-semibold text-primary hover:underline break-all">
+                    {{ vet.websiteLabel ?? url }}
+                  </a>
+                </div>
+              }
+            </dl>
+            @if (vet.notes) {
+              <p class="mt-3 text-xs text-on-surface-variant leading-relaxed border-t border-outline-variant/20 pt-3">
+                {{ vet.notes }}
+              </p>
+            }
+          </li>
+        }
+      </ul>
+      <ul class="text-sm text-on-surface-variant space-y-2 font-body list-disc pl-5 mt-5">
         <li>Ask your clinic about emergency cover and the nearest mainland hospital if a ferry isn’t running.</li>
         <li>Keep vaccination and microchip paperwork photos on your phone.</li>
+      </ul>
+    </section>
+
+    <section
+      id="bird-rescue"
+      tabindex="-1"
+      class="scroll-mt-28 rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8 text-left outline-none"
+    >
+      <h2 class="font-headline text-sm font-extrabold uppercase tracking-widest text-primary mb-4">Bird rescue</h2>
+      <p class="text-on-surface/85 text-sm leading-relaxed font-body mb-5">
+        Native and endemic birds are protected under NZ law — if in doubt, call a DOC-authorised carer rather than keeping
+        the bird at home.
+      </p>
+      <ul class="space-y-5">
+        @for (org of birdRescue; track org.name) {
+          <li class="rounded-xl bg-surface-container-high/70 p-4 sm:p-5 ring-1 ring-on-surface/[0.04]">
+            <h3 class="font-headline text-base font-extrabold text-primary">{{ org.name }}</h3>
+            @if (org.role) {
+              <p class="text-xs font-bold uppercase tracking-wide text-secondary mt-1">{{ org.role }}</p>
+            }
+            <dl class="mt-3 space-y-2 text-sm text-on-surface-variant font-body">
+              @if (org.phone; as phone) {
+                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <span class="material-symbols-outlined text-base text-outline shrink-0" aria-hidden="true"
+                    >call</span
+                  >
+                  @if (telHref(phone); as href) {
+                    <a [href]="href" class="font-bold text-primary hover:underline">{{ phone }}</a>
+                  } @else {
+                    <span class="font-bold text-on-surface">{{ phone }}</span>
+                  }
+                  @if (org.phoneNote) {
+                    <span class="text-xs text-outline w-full sm:w-auto sm:ml-6">{{ org.phoneNote }}</span>
+                  }
+                </div>
+              }
+              @if (org.website; as url) {
+                <div class="flex gap-2">
+                  <span class="material-symbols-outlined text-base text-outline shrink-0" aria-hidden="true"
+                    >language</span
+                  >
+                  <a [href]="url" target="_blank" rel="noopener noreferrer" class="font-semibold text-primary hover:underline break-all">
+                    {{ org.websiteLabel ?? url }}
+                  </a>
+                </div>
+              }
+            </dl>
+            @if (org.notes) {
+              <p class="mt-3 text-xs text-on-surface-variant leading-relaxed border-t border-outline-variant/20 pt-3">
+                {{ org.notes }}
+              </p>
+            }
+          </li>
+        }
       </ul>
     </section>
 
@@ -48,7 +174,8 @@
         Ferry &amp; vet checklist
       </h2>
       <p class="text-on-surface/85 text-sm leading-relaxed font-body">
-        If you’re reuniting a pet across the water, check carrier rules, shade, and water for queue waits — stressed animals overheat quickly in summer.
+        If you’re reuniting a pet across the water, check carrier rules, shade, and water for queue waits — stressed
+        animals overheat quickly in summer.
       </p>
       <ul class="text-sm text-on-surface-variant space-y-2 font-body list-disc pl-5 mt-4">
         <li>Carrier + leash + water bowl in the car.</li>
@@ -59,11 +186,16 @@
     <section class="rounded-2xl bg-surface-container-lowest ring-1 ring-on-surface/[0.06] shadow-soft p-6 sm:p-8 text-left">
       <h2 class="font-headline text-sm font-extrabold uppercase tracking-widest text-primary mb-4">Lost or sighted — what helps</h2>
       <p class="text-on-surface/85 text-sm leading-relaxed font-body">
-        Clear photos, collar colour, last known bay or track name, and a calm “don’t chase” note make island-wide shares far more effective than a vague description.
+        Clear photos, collar colour, last known bay or track name, and a calm “don’t chase” note make island-wide shares
+        far more effective than a vague description.
       </p>
     </section>
 
-    <p class="text-center sm:text-left pt-4">
+    <p class="text-xs text-outline text-center sm:text-left">
+      Contacts listed for community convenience — confirm hours and services on each provider’s website.
+    </p>
+
+    <p class="text-center sm:text-left pt-2">
       <a
         routerLink="/"
         class="inline-flex items-center gap-1 text-sm font-extrabold text-primary uppercase tracking-widest hover:text-primary-container transition"
