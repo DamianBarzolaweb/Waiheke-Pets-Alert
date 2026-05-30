@@ -180,7 +180,7 @@ export class ReportComponent implements OnDestroy {
           const nameCtrl = this.form.controls.petName;
           nameCtrl.setValidators(Validators.required);
           nameCtrl.updateValueAndValidity({ emitEvent: false });
-          void this.router.navigate(['/alertas', created.id]);
+          void this.router.navigate(['/alertas', created.id], { queryParams: { posted: '1' } });
         },
         error: (err) => {
           this.submitting.set(false);

@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { ShareFacebookPanelComponent } from '../../components/share-facebook-panel/share-facebook-panel.component';
 import { LeafletMapComponent, type LeafletMapMarker } from '../../components/leaflet-map/leaflet-map.component';
 import { alertHeadline, type CommunitySighting, type PetAlert } from '../../models/pet-alert.model';
 import { AuthService } from '../../services/auth.service';
@@ -11,7 +12,7 @@ import { PetAlertsService } from '../../services/pet-alerts.service';
 
 @Component({
   selector: 'app-alert-detail',
-  imports: [RouterLink, LeafletMapComponent, ReactiveFormsModule],
+  imports: [RouterLink, LeafletMapComponent, ReactiveFormsModule, ShareFacebookPanelComponent],
   templateUrl: './alert-detail.component.html',
   styleUrl: './alert-detail.component.scss',
 })
@@ -24,6 +25,11 @@ export class AlertDetailComponent {
   readonly alertId = toSignal(this.route.paramMap.pipe(map((params) => params.get('id') ?? '')), {
     initialValue: '',
   });
+
+  readonly justPosted = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('posted') === '1')),
+    { initialValue: false },
+  );
 
   readonly detailLoading = signal(true);
   readonly detailError = signal<string | null>(null);

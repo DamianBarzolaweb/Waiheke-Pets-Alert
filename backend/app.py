@@ -625,6 +625,17 @@ def health():
     return jsonify({"ok": True, "service": "waiheke-pets-alert"})
 
 
+DEFAULT_FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/waihekelostandfoundpets/"
+
+
+@app.route("/api/site-config", methods=["GET"])
+def site_config():
+    """Public URLs for share-to-Facebook UI (group link configurable on Heroku)."""
+    group = (os.getenv("WPA_FACEBOOK_GROUP_URL") or "").strip() or DEFAULT_FACEBOOK_GROUP_URL
+    public = (os.getenv("WPA_PUBLIC_BASE_URL") or os.getenv("PUBLIC_APP_URL") or "").strip()
+    return jsonify({"facebookGroupUrl": group, "publicSiteUrl": public})
+
+
 @app.route("/api/auth/registration-options", methods=["GET"])
 def registration_options():
     """So the SPA can hide phone fields when signup is email-only."""

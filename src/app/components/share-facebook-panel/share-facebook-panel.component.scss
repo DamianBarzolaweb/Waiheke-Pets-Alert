@@ -1,0 +1,28 @@
+:host {
+  display: block;
+}
+
+.share-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.share-step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  padding-bottom: 1.5rem;
+  position: relative;
+
+  &:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 1.25rem;
+    top: 3rem;
+    bottom: 0;
+    width: 2px;
+    background: rgb(10 77 82 / 0.15);
+    border-radius: 1px;
+  }
+}
