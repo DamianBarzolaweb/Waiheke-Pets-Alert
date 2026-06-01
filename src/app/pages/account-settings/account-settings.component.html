@@ -1,0 +1,109 @@
+<div class="max-w-lg mx-auto px-4 py-12">
+  <h1 class="font-headline text-3xl font-extrabold text-primary mb-2">Account settings</h1>
+  <p class="text-on-surface-variant text-sm mb-8">
+    Signed in as <strong class="text-on-surface">{{ username() }}</strong>
+  </p>
+
+  @if (error(); as err) {
+    <div class="mb-6 rounded-2xl bg-error/10 text-error px-4 py-3 text-sm font-medium ring-1 ring-error/20" role="alert">
+      {{ err }}
+    </div>
+  }
+  @if (success(); as ok) {
+    <div class="mb-6 rounded-2xl bg-secondary/10 text-secondary px-4 py-3 text-sm font-medium ring-1 ring-secondary/20" role="status">
+      {{ ok }}
+    </div>
+  }
+
+  <section class="space-y-6 mb-10">
+    <h2 class="font-headline text-xs font-extrabold uppercase tracking-widest text-secondary">Profile</h2>
+    <form [formGroup]="profileForm" (submit)="saveProfile($event)" class="space-y-4" autocomplete="on">
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="nombre">Display name</label>
+        <input
+          id="nombre"
+          name="displayName"
+          formControlName="nombreCompleto"
+          autocomplete="name"
+          class="w-full rounded-xl bg-surface-container-high border-none px-4 py-3.5 text-sm font-semibold text-on-surface focus:ring-2 focus:ring-primary/25"
+        />
+        <p class="mt-2 text-xs text-on-surface-variant">Shown in the header next to Report Pet.</p>
+      </div>
+
+      <div class="rounded-xl bg-surface-container-high/80 px-4 py-3 text-sm">
+        <span class="text-xs font-bold uppercase tracking-widest text-outline block mb-1">Email</span>
+        <span class="font-semibold text-on-surface">{{ userEmail() }}</span>
+      </div>
+
+      <button
+        type="submit"
+        [disabled]="savingProfile()"
+        class="rounded-2xl bg-primary text-on-primary px-8 py-3 text-sm font-extrabold uppercase tracking-widest disabled:opacity-50"
+      >
+        {{ savingProfile() ? 'Saving…' : 'Save display name' }}
+      </button>
+    </form>
+  </section>
+
+  <section class="space-y-6 rounded-2xl ring-1 ring-on-surface/[0.06] p-6 bg-surface-container-lowest">
+    <h2 class="font-headline text-xs font-extrabold uppercase tracking-widest text-secondary">Password</h2>
+    <form [formGroup]="passwordForm" (submit)="savePassword($event)" class="space-y-4" autocomplete="on">
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="current">Current password</label>
+        <input
+          id="current"
+          name="current-password"
+          type="password"
+          formControlName="currentPassword"
+          autocomplete="current-password"
+          class="w-full rounded-xl bg-surface-container-high border-none px-4 py-3 text-sm font-semibold"
+        />
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="new">New password</label>
+        <input
+          id="new"
+          name="new-password"
+          type="password"
+          formControlName="newPassword"
+          autocomplete="new-password"
+          class="w-full rounded-xl bg-surface-container-high border-none px-4 py-3 text-sm font-semibold"
+        />
+        @if (passwordForm.controls.newPassword.touched && passwordForm.controls.newPassword.invalid) {
+          <p class="mt-2 text-xs text-error">At least 6 characters.</p>
+        }
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="confirm">Confirm new password</label>
+        <input
+          id="confirm"
+          name="confirm-password"
+          type="password"
+          formControlName="confirmPassword"
+          autocomplete="new-password"
+          class="w-full rounded-xl bg-surface-container-high border-none px-4 py-3 text-sm font-semibold"
+        />
+      </div>
+      <button
+        type="submit"
+        [disabled]="savingPassword()"
+        class="rounded-2xl bg-secondary text-on-secondary px-8 py-3 text-sm font-extrabold uppercase tracking-widest disabled:opacity-50"
+      >
+        {{ savingPassword() ? 'Updating…' : 'Update password' }}
+      </button>
+    </form>
+    <p class="text-xs text-on-surface-variant">
+      <a routerLink="/forgot-password" class="font-bold text-primary hover:underline">Forgot your password?</a>
+    </p>
+  </section>
+
+  <p class="mt-8 text-center">
+    <button
+      type="button"
+      (click)="auth.logout()"
+      class="text-sm font-extrabold uppercase tracking-widest text-on-surface/60 hover:text-error"
+    >
+      Log out
+    </button>
+  </p>
+</div>

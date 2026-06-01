@@ -296,6 +296,38 @@ def user_to_dict(u: Usuario) -> dict:
     }
 
 
+def _usuario_por_email_o_username(identifier: str) -> Usuario | None:
+    """Match signup/login identifiers; email lookup is case-insensitive."""
+    raw = (identifier or "").strip()
+    if not raw:
+        return None
+    if "@" in raw:
+        email = _normalize_login_email(raw)
+        if not _valid_signup_email(email):
+            return None
+        return Usuario.query.filter(func.lower(Usuario.email) == email).first()
+    u = Usuario.query.filter_by(username=raw).first()
+    if u:
+        return u
+    return Usuario.query.filter(func.lower(Usuario.username) == raw.lower()).first()
+
+
+def _mailgun_delivery_error_message() -> str:
+    mg_domain = (os.getenv("MAILGUN_DOMAIN") or "").lower()
+    if "sandbox" in mg_domain:
+        return (
+            "Could not send the email. Mailgun sandbox only delivers to authorized addresses — "
+            "open the Mailgun invite in your inbox or use a verified domain in production."
+        )
+    return "Could not send email. Try again later."
+
+
+def _should_expose_dev_otp() -> bool:
+    if (os.getenv("FLASK_ENV") or "").strip().lower() == "development":
+        return True
+    return os.getenv("DEV_EXPOSE_REGISTRATION_OTP", "").strip().lower() in ("1", "true", "yes")
+
+
 def create_jwt_token(user_id: int, username: str, is_admin: bool = False) -> str:
     payload = {
         "user_id": user_id,
@@ -1163,6 +1195,113 @@ def resend_email(payload):
     if enviar_email_verificacion_mailgun_pets(u.email, c, u.nombre_completo):
         return jsonify({"ok": True})
     return jsonify({"error": "Could not send email."}), 500
+
+
+def _codigo_email_vigente(u: Usuario) -> bool:
+    if not u.codigo_verificacion or not u.fecha_codigo:
+        return False
+    fc = u.fecha_codigo
+    if fc.tzinfo is None:
+        fc = fc.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - fc < timedelta(minutes=10)
+
+
+@app.route("/api/auth/forgot-password", methods=["POST"])
+@limiter.limit("10 per minute")
+def forgot_password():
+    from latinos_auth_utils import enviar_email_reset_password_mailgun_pets
+
+    data = request.get_json(silent=True) or {}
+    identifier = (data.get("email") or data.get("identifier") or "").strip()
+    generic = {
+        "ok": True,
+        "message": "If an account matches, we sent a 6-digit code to its email. Check your inbox.",
+    }
+    if not identifier:
+        return jsonify(generic)
+    u = _usuario_por_email_o_username(identifier)
+    if not u:
+        return jsonify(generic)
+    dest = _normalize_login_email(u.email or "")
+    if not dest or not _valid_signup_email(dest):
+        return jsonify(
+            {
+                "error": "This account has no email on file. Log in and add one in Account settings, or sign up again with email.",
+            }
+        ), 400
+    codigo = u.generar_codigo_verificacion_email()
+    db.session.commit()
+    nombre = u.nombre_completo or u.username
+    if not enviar_email_reset_password_mailgun_pets(dest, codigo, nombre):
+        return jsonify({"error": _mailgun_delivery_error_message()}), 502
+    body = {
+        "ok": True,
+        "message": f"Reset code sent to {dest}.",
+        "email": dest,
+    }
+    if _should_expose_dev_otp():
+        body["devResetCode"] = codigo
+    return jsonify(body)
+
+
+@app.route("/api/auth/reset-password", methods=["POST"])
+@limiter.limit("15 per minute")
+def reset_password():
+    data = request.get_json(silent=True) or {}
+    identifier = (data.get("email") or data.get("identifier") or "").strip()
+    code = (data.get("code") or "").strip()
+    password = (data.get("password") or "").strip()
+    if not identifier or not code or not password:
+        return jsonify({"error": "account, code, and password are required"}), 400
+    if len(password) < 6:
+        return jsonify({"error": "password must be at least 6 characters"}), 400
+    u = _usuario_por_email_o_username(identifier)
+    if not u or u.codigo_verificacion != code or not _codigo_email_vigente(u):
+        return jsonify({"error": "Incorrect or expired code (10 min)."}), 400
+    u.set_password(password)
+    u.codigo_verificacion = None
+    u.fecha_codigo = None
+    db.session.commit()
+    return jsonify({"ok": True, "message": "Password updated. You can log in now."})
+
+
+@app.route("/api/auth/me", methods=["PATCH"])
+@require_auth
+def update_me(payload):
+    data = request.get_json(silent=True) or {}
+    if not data:
+        return jsonify({"error": "JSON body required"}), 400
+    u = Usuario.query.get(payload["user_id"])
+    if not u:
+        return jsonify({"error": "User not found"}), 404
+
+    changed = False
+
+    if "nombreCompleto" in data:
+        nombre = (data.get("nombreCompleto") or "").strip()
+        if len(nombre) < 2:
+            return jsonify({"error": "Full name must be at least 2 characters"}), 400
+        u.nombre_completo = nombre
+        changed = True
+
+    new_pw = (data.get("newPassword") or "").strip()
+    if new_pw:
+        current = (data.get("currentPassword") or "").strip()
+        if not current:
+            return jsonify({"error": "Current password is required"}), 400
+        if not u.check_password(current):
+            return jsonify({"error": "Current password is incorrect"}), 400
+        if len(new_pw) < 6:
+            return jsonify({"error": "New password must be at least 6 characters"}), 400
+        u.set_password(new_pw)
+        changed = True
+
+    if not changed:
+        return jsonify({"error": "Nothing to update"}), 400
+
+    db.session.commit()
+    token = create_jwt_token(u.id, u.username, bool(u.es_admin))
+    return jsonify({"token": token, "user": user_to_dict(u)})
 
 
 @app.route("/api/auth/login", methods=["POST"])

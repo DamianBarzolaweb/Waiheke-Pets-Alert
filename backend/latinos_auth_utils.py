@@ -212,3 +212,51 @@ def enviar_email_verificacion_mailgun_pets(email: str, codigo: str, nombre: str)
     except Exception as e:
         print(f"Mailgun error: {e}")
         return False
+
+
+def enviar_email_reset_password_mailgun_pets(email: str, codigo: str, nombre: str) -> bool:
+    key = (os.getenv("MAILGUN_API_KEY") or "").strip()
+    domain = (os.getenv("MAILGUN_DOMAIN") or "").strip()
+    flask_env = (os.getenv("FLASK_ENV") or "").strip().lower()
+    dev_mode = flask_env == "development"
+
+    if not key or not domain:
+        if dev_mode:
+            print(f"[DEV] Mailgun not configured. Password reset code for {email}: {codigo}")
+            return True
+        print("[Mailgun] Set MAILGUN_API_KEY and MAILGUN_DOMAIN to send password reset emails.")
+        return False
+
+    region = (os.getenv("MAILGUN_REGION") or "").strip().lower()
+    base = (
+        "https://api.eu.mailgun.net/v3"
+        if region in ("eu", "europe")
+        else "https://api.mailgun.net/v3"
+    )
+    from_addr = mailgun_from_address(domain)
+    display = nombre or "there"
+
+    try:
+        url = f"{base}/{domain}/messages"
+        data = {
+            "from": from_addr,
+            "to": email,
+            "subject": "Reset your password — Waiheke Pets Alert",
+            "text": (
+                f"Hi {display}, use this code to reset your password: {codigo} "
+                "(valid 10 minutes). If you did not request this, ignore this email."
+            ),
+            "html": f"""
+            <p>Hi {display},</p>
+            <p>Your password reset code is:
+               <strong style="font-size:24px;">{codigo}</strong></p>
+            <p>Expires in 10 minutes. If you did not request a reset, you can ignore this email.</p>
+            """,
+        }
+        r = requests.post(url, auth=("api", key), data=data, timeout=20)
+        if r.status_code != 200:
+            print(f"Mailgun reset HTTP {r.status_code}: {r.text[:500]}")
+        return r.status_code == 200
+    except Exception as e:
+        print(f"Mailgun reset error: {e}")
+        return False

@@ -6,6 +6,8 @@ import { ResourcesComponent } from './pages/resources/resources.component';
 import { HowItWorksComponent } from './pages/how-it-works/how-it-works.component';
 import { MapPageComponent } from './pages/map-page/map-page.component';
 import { LoginComponent } from './pages/login/login.component';
+import { ForgotPasswordComponent } from './pages/forgot-password/forgot-password.component';
+import { AccountSettingsComponent } from './pages/account-settings/account-settings.component';
 import { RegisterComponent } from './pages/register/register.component';
 import { TermsPageComponent } from './pages/legal/terms-page.component';
 import { PrivacyPageComponent } from './pages/legal/privacy-page.component';
@@ -18,7 +20,9 @@ export const routes: Routes = [
   /* Empty path '' must use pathMatch: 'full', otherwise every URL matches as prefix and wipes /login, /registro, etc. */
   { path: '', pathMatch: 'full', component: HomeComponent, title: 'Home' },
   { path: 'login', component: LoginComponent, title: 'Log in' },
+  { path: 'forgot-password', component: ForgotPasswordComponent, title: 'Forgot password' },
   { path: 'registro', component: RegisterComponent, title: 'Sign up' },
+  { path: 'settings', component: AccountSettingsComponent, title: 'Account settings', canActivate: [authGuard] },
   { path: 'terms', component: TermsPageComponent, title: 'Terms & Conditions' },
   { path: 'privacy', component: PrivacyPageComponent, title: 'Privacy Policy' },
   { path: 'mapa', component: MapPageComponent, title: 'Map' },

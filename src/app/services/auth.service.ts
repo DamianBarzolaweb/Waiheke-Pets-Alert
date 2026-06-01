@@ -15,6 +15,13 @@ export class AuthService {
   readonly user = this._user.asReadonly();
   readonly isLoggedIn = computed(() => this._user() !== null);
   readonly isAdmin = computed(() => this._user()?.esAdmin === true);
+  /** Name shown in the header (full name, else username). */
+  readonly displayName = computed(() => {
+    const u = this._user();
+    if (!u) return '';
+    const name = (u.nombreCompleto || '').trim();
+    return name || u.username;
+  });
 
   constructor() {
     this.hydrateFromStorage();
@@ -104,5 +111,29 @@ export class AuthService {
 
   resendEmail() {
     return this.http.post<{ ok: boolean }>(apiUrl('/api/auth/resend-email'), {});
+  }
+
+  forgotPassword(identifier: string) {
+    return this.http.post<{ ok: boolean; message: string; email?: string; devResetCode?: string }>(
+      apiUrl('/api/auth/forgot-password'),
+      { identifier, email: identifier },
+    );
+  }
+
+  resetPassword(identifier: string, code: string, password: string) {
+    return this.http.post<{ ok: boolean; message: string }>(apiUrl('/api/auth/reset-password'), {
+      identifier,
+      email: identifier,
+      code,
+      password,
+    });
+  }
+
+  updateProfile(body: {
+    nombreCompleto?: string;
+    currentPassword?: string;
+    newPassword?: string;
+  }) {
+    return this.http.patch<{ token: string; user: AuthUser }>(apiUrl('/api/auth/me'), body);
   }
 }

@@ -15,11 +15,12 @@
     </div>
   }
 
-  <form [formGroup]="form" (submit)="onSubmit($event)" class="space-y-6">
+  <form [formGroup]="form" (submit)="onSubmit($event)" class="space-y-6" autocomplete="on">
     <div>
       <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="username">Username</label>
       <input
         id="username"
+        name="username"
         formControlName="username"
         autocomplete="username"
         class="w-full rounded-xl bg-surface-container-high border-none px-4 py-3.5 text-sm font-semibold text-on-surface focus:ring-2 focus:ring-primary/25"
@@ -32,11 +33,15 @@
       <label class="block text-xs font-bold uppercase tracking-widest text-outline mb-2" for="password">Password</label>
       <input
         id="password"
+        name="password"
         type="password"
         formControlName="password"
         autocomplete="current-password"
         class="w-full rounded-xl bg-surface-container-high border-none px-4 py-3.5 text-sm font-semibold text-on-surface focus:ring-2 focus:ring-primary/25"
       />
+      <p class="mt-2 text-right">
+        <a routerLink="/forgot-password" class="text-sm font-semibold text-primary hover:underline">Forgot your password?</a>
+      </p>
     </div>
     <button
       type="submit"

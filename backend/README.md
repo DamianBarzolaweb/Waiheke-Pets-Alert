@@ -91,6 +91,9 @@ Email en el flujo antiguo (phone first) seguía siendo opcional; con email-only 
   - `POST /api/auth/verify-email` — `code` (Bearer)
   - `POST /api/auth/resend-email` — Bearer
   - `POST /api/auth/login` — `{ "username", "password" }`
+  - `POST /api/auth/forgot-password` — `{ "email" }` (6-digit code by Mailgun)
+  - `POST /api/auth/reset-password` — `{ "email", "code", "password" }`
   - `GET /api/auth/me` — Bearer
+  - `PATCH /api/auth/me` — Bearer; `{ "nombreCompleto" }` and/or `{ "currentPassword", "newPassword" }`
 
 La base de datos de **Pets Alert** es distinta a Latinos: hay que registrarse de nuevo en esta app (mismo flujo, otra BBDD).

@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { apiErrorMessage } from '../../lib/http-error';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -43,9 +44,9 @@ export class LoginComponent {
           returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : '/';
         void this.router.navigateByUrl(target);
       },
-      error: () => {
+      error: (err) => {
         this.submitting.set(false);
-        this.error.set('Invalid username or password.');
+        this.error.set(apiErrorMessage(err, 'Invalid username or password.'));
       },
     });
   }

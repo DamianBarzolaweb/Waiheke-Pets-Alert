@@ -31,24 +31,53 @@
     </div>
     <div class="flex items-center gap-2 sm:gap-3 shrink-0 flex-wrap justify-end">
       @if (auth.isLoggedIn()) {
-        @if (auth.isAdmin()) {
-          <a
-            routerLink="/admin"
-            routerLinkActive="text-primary"
-            class="hidden sm:inline text-[10px] font-extrabold uppercase tracking-widest text-secondary hover:text-primary px-2 py-1"
+        <div class="relative">
+          <button
+            type="button"
+            (click)="toggleMenu()"
+            class="inline-flex items-center gap-1.5 rounded-full bg-surface-container-high pl-3 pr-2 py-2 text-sm font-bold text-on-surface ring-1 ring-on-surface/[0.08] hover:bg-surface-container-highest transition max-w-[11rem] sm:max-w-[14rem]"
+            [attr.aria-expanded]="menuOpen()"
+            aria-haspopup="true"
           >
-            Admin
-          </a>
-        }
-        <span class="hidden sm:inline text-xs font-bold text-on-surface/80 max-w-[120px] truncate" [title]="auth.user()?.username">
-          {{ auth.user()?.username }}
-        </span>
-        <button
-          type="button"
-          (click)="logout()"
-          class="hidden sm:inline text-xs font-extrabold uppercase tracking-widest text-on-surface/60 hover:text-primary px-2 py-1"
-        >
-          Log out        </button>
+            <span class="truncate" [title]="auth.displayName()">{{ auth.displayName() }}</span>
+            <span class="material-symbols-outlined text-lg text-on-surface/60 shrink-0" aria-hidden="true">
+              expand_more
+            </span>
+          </button>
+          @if (menuOpen()) {
+            <div
+              class="absolute right-0 top-full mt-2 min-w-[12rem] rounded-2xl bg-surface-container-lowest py-2 shadow-card ring-1 ring-on-surface/[0.08] z-50"
+              role="menu"
+            >
+              <a
+                routerLink="/settings"
+                (click)="closeMenu()"
+                class="block px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high transition"
+                role="menuitem"
+              >
+                Account settings
+              </a>
+              @if (auth.isAdmin()) {
+                <a
+                  routerLink="/admin"
+                  (click)="closeMenu()"
+                  class="block px-4 py-2.5 text-sm font-semibold text-secondary hover:bg-surface-container-high transition"
+                  role="menuitem"
+                >
+                  Admin panel
+                </a>
+              }
+              <button
+                type="button"
+                (click)="logout()"
+                class="w-full text-left px-4 py-2.5 text-sm font-semibold text-on-surface/70 hover:bg-surface-container-high hover:text-error transition"
+                role="menuitem"
+              >
+                Log out
+              </button>
+            </div>
+          }
+        </div>
       } @else {
         <a
           routerLink="/login"
